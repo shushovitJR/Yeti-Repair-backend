@@ -8,11 +8,11 @@ export const createRepairRequest = async (req: Request, res: Response) => {
     IssueDescription,
     IssueDate,
     ReturnDate,
-    VendorId,
+    VendorName,
     RepairStatus = 'Pending',
   } = req.body;
 
-  if (!DeviceCategory || !DeviceName || !IssueDescription || !VendorId) {
+  if (!DeviceCategory || !DeviceName || !IssueDescription || !VendorName || !IssueDate) {
     return res.status(400).json({
       message: 'Missing required fields: DeviceCategory, DeviceName, IssueDescription, and VendorId',
     });
@@ -20,6 +20,7 @@ export const createRepairRequest = async (req: Request, res: Response) => {
 
   try {
     let DeviceId: number;
+    let VendorId: number;
 
     // Query 1: Check if device exists → NEW REQUEST
     const checkRequest = new sql.Request();
@@ -50,6 +51,24 @@ export const createRepairRequest = async (req: Request, res: Response) => {
       DeviceId = insertDevice.recordset[0].DeviceId;
     }
 
+    const checkVendor = new sql.Request();
+    const vendorResult = await checkVendor
+      .input('VendorName', VendorName)
+      .query(`
+        SELECT VendorId
+        FROM vendor
+        WHERE VendorName = @VendorName
+        `);
+
+        
+
+        if (vendorResult.recordset.length === 0){
+          return res.status(400).json({
+            message: 'Vendor not found. Please register the vendor before creating a repair request',
+          })
+        }
+        VendorId = vendorResult.recordset[0].VendorId;
+        
     // Query 3: Insert repair → NEW REQUEST
     const repairRequest = new sql.Request();
     const repairResult = await repairRequest

@@ -38,26 +38,6 @@ export const login = async (req: Request, res: Response) => {
       `;
     }
 
-    // const isMatch = await bcrypt.compare(password, user.password);
-    // if (!isMatch){
-    //     return res.status(401).json({message: "Invalid Credentials"});
-    // }
-    // let isMatch = false;
-
-    // if (user.Password.startsWith("$2b$")) {
-      // Already hashed → use bcrypt
-    //   isMatch = await bcrypt.compare(password, user.Password);
-    // } else {
-    //   // Still plain text → direct comparison
-    //   isMatch = password === user.Password;
-    // }
-
-    // If login successful and it was plain text, re-hash it
-    // if (isMatch && !user.Password.startsWith("$2b$")) {
-    //   const hashed = await bcrypt.hash(password, 10);
-    //   await user.update({ password: hashed }); // Save hashed version
-    // }
-
     const token = jwt.sign(
       { UserId: user.UserId, Role: user.Role },
       process.env.JWT_SECRET!,

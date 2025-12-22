@@ -1,15 +1,16 @@
 import {Request, Response} from 'express';
 import sql from '../config/db';
-// import { AuthRequest } from '../middlewares/authMiddleware';
+import { AuthRequest } from '../middlewares/authMiddleware';
 
-export const createRequest = async (req: Request, res: Response)=>{
+export const createRequest = async (req: AuthRequest, res: Response)=>{
     const {
         DeviceCategory,
         DeviceName,
         Reason,
-        RequestedBy = 1,
+        // RequestedBy = 1,
         RequestStatus = 'Pending',
     } = req.body;
+    const RequestedBy = req.user?.UserId;
 
     if (!DeviceCategory || !DeviceName || !RequestedBy || !Reason){
         return res.status(400).json({
@@ -181,7 +182,7 @@ type UpdateFields = {
 
 const VALID_STATUSES = ['Pending', 'Received', 'On Hold', 'Canceled'];
 
-export const updateRequest = async (req: Request, res: Response) => {
+export const updateRequest = async (req: AuthRequest, res: Response) => {
   // Get ID from URL params (e.g., /requests/:id)
   const { id } = req.params;
   const RequestId = Number(id);

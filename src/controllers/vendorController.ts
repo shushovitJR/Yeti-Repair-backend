@@ -44,9 +44,12 @@ export const getVendors = async (req: Request, res: Response)=>{
                 SELECT VendorName FROM vendor;
             `);
 
-            res.status(200).json({
-                vendors: result.recordset,
-            });
+            const vendors = result.recordset.map((row: any)=>({
+                VendorName: row.VendorName,
+            }));
+
+            res.status(200).json(vendors);
+           
     } catch (error: any){
         console.error('Error fetching vendors from db:', error);
         res.status(500).json({
