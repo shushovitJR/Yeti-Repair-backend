@@ -5,7 +5,7 @@ import { authenticate, authorize } from '../middlewares/authMiddleware';
 const router = Router();
 
 router.get('/', getRepairRequest);
-router.post('/', authenticate, authorize(['admin']), createRepairRequest);
+router.post('/', createRepairRequest);
 router.get('/:id', getRepairRequestById);
 router.put('/:id', authenticate, authorize(['admin']), updateRepairRequest);
 
