@@ -202,20 +202,35 @@ type UpdateFields = {
   IssueDate?: string;
   ReturnDate?: string | null;
   RepairStatus?: string;
-  VendorId?: number;
+  VendorName?: string;  // <-- NEW: Accept VendorName instead of VendorId
 };
+
 const VALID_STATUSES = ['Pending', 'In Progress', 'Completed'];
-export const updateRepairRequest = async (req: Request, res: Response)=>{
+
+export const updateRepairRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
   const RepairId = Number(id);
 
-  if (isNaN(RepairId) || RepairId <= 0){
-    return res.status(400).json({message: 'Invalid repair ID'});
+  if (isNaN(RepairId) || RepairId <= 0) {
+    return res.status(400).json({ message: 'Invalid repair ID' });
   }
 
-  const { IssueDescription, IssueDate, ReturnDate, RepairStatus, VendorId } = req.body as UpdateFields;
+  const {
+    IssueDescription,
+    IssueDate,
+    ReturnDate,
+    RepairStatus,
+    VendorName,  // <-- Now we expect VendorName
+  } = req.body as UpdateFields;
 
-  if (!IssueDescription && !IssueDate && !ReturnDate && !RepairStatus && VendorId === undefined) {
+  // Check if at least one field is provided
+  if (
+    !IssueDescription &&
+    !IssueDate &&
+    !ReturnDate &&
+    !RepairStatus &&
+    !VendorName
+  ) {
     return res.status(400).json({ message: 'No fields provided to update' });
   }
 
@@ -225,55 +240,84 @@ export const updateRepairRequest = async (req: Request, res: Response)=>{
     });
   }
 
-  try{
+  try {
     const request = new sql.Request();
 
+    // Step 1: If VendorName is provided, look up VendorId
+    let VendorId: number | null = null;
+    if (VendorName !== undefined) {
+      const vendorResult = await request
+        .input('VendorName', sql.NVarChar, VendorName)
+        .query(`
+          SELECT VendorId 
+          FROM Vendor 
+          WHERE VendorName = @VendorName
+        `);
+
+      if (vendorResult.recordset.length === 0) {
+        return res.status(400).json({
+          message: `Vendor "${VendorName}" not found`,
+        });
+      }
+
+      VendorId = vendorResult.recordset[0].VendorId;
+    }
+
+    // Step 2: Build the UPDATE query
     let updateQuery = 'UPDATE repair SET ';
     const updates: string[] = [];
     const params: any = {};
 
-    if (IssueDescription !== undefined){
+    if (IssueDescription !== undefined) {
       updates.push('IssueDescription = @IssueDescription');
       params.IssueDescription = IssueDescription;
     }
-    if (IssueDate !== undefined){
+    if (IssueDate !== undefined) {
       updates.push('IssueDate = @IssueDate');
       params.IssueDate = IssueDate;
     }
     if (ReturnDate !== undefined) {
-    updates.push('ReturnDate = @ReturnDate');
-    // If client sends "null" or empty string, set to NULL
-    params.ReturnDate = ReturnDate === null || ReturnDate === '' ? null : ReturnDate;
-    } 
-    if (RepairStatus !== undefined){
+      updates.push('ReturnDate = @ReturnDate');
+      params.ReturnDate = ReturnDate === null || ReturnDate === '' ? null : ReturnDate;
+    }
+    if (RepairStatus !== undefined) {
       updates.push('RepairStatus = @RepairStatus');
       params.RepairStatus = RepairStatus;
     }
-    if (VendorId !== undefined){
+    if (VendorName !== undefined) {
+      // We already have VendorId from lookup
       updates.push('VendorId = @VendorId');
       params.VendorId = VendorId;
     }
 
-    updateQuery +=updates.join(', ');
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update' });
+    }
+
+    updateQuery += updates.join(', ');
     updateQuery += ' WHERE RepairId = @RepairId';
 
-    request.input('RepairId', RepairId);
+    // Step 3: Add RepairId to parameters
+    request.input('RepairId', sql.Int, RepairId);
 
-    Object.keys(params).forEach((key)=>{
-      request.input(key, params[key]);
+    // Step 4: Add all other parameters
+    Object.entries(params).forEach(([key, value]) => {
+      request.input(key, value);
     });
+
+    // Step 5: Execute the update
     const result = await request.query(updateQuery);
 
-    if (result.rowsAffected[0] === 0){
-      return res.status(404).json({message: 'Repair request not found'});
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Repair request not found' });
     }
 
     res.status(200).json({
       message: 'Repair request updated successfully',
       RepairId: RepairId,
     });
-  } catch (error: any){
-    console.error('Error updating repair request: ',error);
-    res.status(500).json({message: 'Failed to update repair request'})
+  } catch (error: any) {
+    console.error('Error updating repair request:', error);
+    res.status(500).json({ message: 'Failed to update repair request' });
   }
 };

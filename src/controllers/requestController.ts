@@ -7,12 +7,11 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
         DeviceCategory,
         DeviceName,
         Reason,
-        // RequestedBy = 1,
         RequestStatus = 'Pending',
     } = req.body;
     const RequestedBy = req.user?.UserId;
 
-    if (!DeviceCategory || !DeviceName || !RequestedBy || !Reason){
+    if (!RequestedBy || !DeviceCategory || !DeviceName || !Reason){
         return res.status(400).json({
             message: 'Missing required fields',
         });
@@ -140,6 +139,7 @@ export const getRequestById = async (req: Request, res: Response)=>{
                 r.RequestId,
                 u.EmployeeName AS RequestedBy,
                 d.DeviceCategory,
+                d.DeviceName,
                 r.Reason,
                 r.RequestStatus AS Status,
                 e.DepartmentName AS Department,
@@ -160,6 +160,7 @@ export const getRequestById = async (req: Request, res: Response)=>{
 
                 const formattedRepair = {
                     RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
+                    DeviceName: row.DeviceName,
                     category: row.DeviceCategory,
                     RequestedBy: row.RequestedBy,
                     Reason: row.Reason,

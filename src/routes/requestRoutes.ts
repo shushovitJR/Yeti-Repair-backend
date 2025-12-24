@@ -4,7 +4,7 @@ import { authenticate, authorize } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.post('/', createRequest);
+router.post('/', authenticate,createRequest);
 router.get('/', getRequest);
 router.get('/:id', getRequestById);
 router.put('/:id', authenticate, authorize(['admin']), updateRequest);
