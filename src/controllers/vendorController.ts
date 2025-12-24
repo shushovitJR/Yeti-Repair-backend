@@ -5,7 +5,6 @@ export const addVendor = async (req: Request, res: Response)=>{
     const{
         VendorName,
     } = req.body;
-
     if (!VendorName){
         return res.status(400).json({
             message: 'Vendor Name is required',
@@ -41,10 +40,11 @@ export const getVendors = async (req: Request, res: Response)=>{
         const getVendor = new sql.Request();
 
         const result = await getVendor.query(`
-                SELECT VendorName FROM vendor;
+                SELECT VendorId, VendorName FROM vendor;
             `);
 
             const vendors = result.recordset.map((row: any)=>({
+                VendorId: row.VendorId,
                 VendorName: row.VendorName,
             }));
 
@@ -80,7 +80,7 @@ export const deleteVendor = async (req: Request, res: Response)=>{
 
         if (repairCount > 0) {
             return res.status(400).json({
-                message: `Cannot delete vendor with associated repairs. It is associated with ${repairCount}`,
+                message: `Cannot delete vendor with associated repairs. It is associated with ${repairCount} repair requests`,
             });
         }
         const deleteQuery = `
