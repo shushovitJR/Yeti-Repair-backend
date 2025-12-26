@@ -98,7 +98,7 @@ export const deleteVendor = async (req: Request, res: Response) => {
   }
 };
 
-export const updateVendor = async (req: Request, res: Response) => {
+export const updateVendor = async (req: Request, res: Response) => {  
   const { id } = req.params;
   const vendorId = Number(id);
 
@@ -123,7 +123,7 @@ export const updateVendor = async (req: Request, res: Response) => {
 
     if (vendorName !== undefined) {
       updates.push("VendorName=@VendorName");
-      params.VendorName = vendorName;
+      params.VendorName = vendorName; 
     }
 
     updateQuery += updates.join(', ');
