@@ -60,7 +60,7 @@ export const updateDevice = async (req: Request, res: Response)=>{
     const { id } = req.params;
     const DeviceCatId = Number(id);
 
-    if (isNaN(DeviceCatId) || DeviceCatId<0){
+    if (isNaN(DeviceCatId) || DeviceCatId <= 0){
         return res.status(400).json({ message:'Invalid Device Category Id' });
     }
 
@@ -70,32 +70,30 @@ export const updateDevice = async (req: Request, res: Response)=>{
     } = req.body;
 
     if (DeviceCatName===undefined && DeviceDescription===undefined){
-        return res.status(400).json({ message:'Missing required fields', })
+        return res.status(400).json({ message:'Missing required field', })
     }
 
     try{
         const request = new sql.Request();
-        let updateQuery = 'UPDATE devicecat SET '
         let updates: string[] = [];
-        let params: Record<string, any> = {};
 
         if (DeviceCatName !== undefined){
             updates.push("DeviceCatName = @DeviceCatName");
-            params.DeviceCatName = DeviceCatName;
+            request.input('DeviceCatName', DeviceCatName);
         }
         if (DeviceDescription !== undefined){
             updates.push("DeviceDescription = @DeviceDescription");
-            params.DeviceDescription = DeviceDescription;
+            request.input('DeviceDescription', DeviceDescription);
         }
-        updateQuery += updates.join(', ');
-        updateQuery += " WHERE DeviceCatId = @DeviceCatId";
         request.input('DeviceCatId', DeviceCatId);  
 
-        Object.keys(params).forEach((key)=>{
-            request.input(key, params[key]);
-        });
+        const query = `
+            UPDATE devicecat
+            SET ${updates.join(', ')}
+            WHERE DeviceCatId = @DeviceCatId
+        `;
 
-        const result = await request.query(updateQuery);
+        const result = await request.query(query);
 
         if (result.rowsAffected[0]===0){
             return res.status(404).json({ message:"Device Category not found" });
@@ -109,5 +107,37 @@ export const updateDevice = async (req: Request, res: Response)=>{
     } catch (error: any){
         console.error('Failed to edit Category', error);
         res.status(500).json({ message:'Error editing Category' });
+    }
+};
+
+export const deleteDevice = async (req: Request, res: Response)=>{
+    const { id } = req.params;
+    const DeviceCatId = Number(id);
+
+    if (isNaN(DeviceCatId) || DeviceCatId <= 0){
+        return res.status(400).json({ message:'Invalid Category Id' });
+    }
+
+    try{
+        const request = new sql.Request();
+        request.input("DeviceCatId", DeviceCatId);
+        const result = await request.query(`
+                DELETE FROM devicecat
+                WHERE DeviceCatId = @DeviceCatId;  
+            `)
+
+        if (result.rowsAffected[0]===0){
+            return res.status(404).json({ message:"Device category not found" });
+        }
+
+        res.status(200).json({ 
+            message: "Succesfully deleted the device",
+            DeviceCatId,
+         });
+
+
+    } catch (error: any){
+        console.error("Failed deleting device",error);
+        res.status(500).json({ message:"Failed to delete the device" });
     }
 };

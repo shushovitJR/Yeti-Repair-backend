@@ -64,20 +64,6 @@ export const deleteVendor = async (req: Request, res: Response) => {
   try {
     const request = new sql.Request();
 
-    // const checkQuery = `
-    // SELECT COUNT(*) AS count
-    // FROM repair
-    // WHERE VendorId = @VendorId`;
-    // request.input('VendorId', VendorId);
-    // const checkResult = await request.query(checkQuery);
-
-    // const repairCount = checkResult.recordset[0].count;
-
-    // if (repairCount > 0) {
-    //     return res.status(400).json({
-    //         message: `Cannot delete vendor with associated repairs. It is associated with ${repairCount} repair requests`,
-    //     });
-    // }
     const deleteQuery = `
         DELETE FROM vendor
         WHERE VendorId = @VendorId`;
