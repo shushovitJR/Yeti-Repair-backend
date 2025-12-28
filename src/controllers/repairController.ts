@@ -82,7 +82,7 @@ export const createRepairRequest = async (req: Request, res: Response) => {
         INSERT INTO repair 
         (DeviceId, IssueDescription, IssueDate, ReturnDate, RepairStatus, VendorId)
         VALUES 
-        (@DeviceId, @IssueDescription, @IssueDate, @ReturnDate, @RepairStatus, @VendorId);
+        (@DeviceId, @IssueDescription, @IssueDate, @ReturnDate, @RepairStatus, @VendorId)
         
         SELECT SCOPE_IDENTITY() AS RepairId;
       `);
