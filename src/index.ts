@@ -7,6 +7,7 @@ import requestRoutes from './routes/requestRoutes';
 import vendorRoutes from './routes/vendorRoutes';
 import deviceRoutes from './routes/deviceRoutes';
 import repairStatusRoutes from './routes/repairStatusRoutes';
+import requestStatusRoutes from './routes/requestStatusRoutes';
 
 dotenv.config();
 const app = express();
@@ -24,5 +25,6 @@ app.use("/api/request", requestRoutes)
 app.use("/api/vendor", vendorRoutes)
 app.use("/api/device", deviceRoutes)
 app.use('/api/repairStatus', repairStatusRoutes)
+app.use('/api/requestStatus', requestStatusRoutes)
 
 export default app;
