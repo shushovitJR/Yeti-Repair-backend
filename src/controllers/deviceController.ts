@@ -7,28 +7,48 @@ export const createDevice = async (req: Request, res: Response)=>{
         DeviceDescription
     } = req.body;
 
-    if (!DeviceCatName || !DeviceDescription){
+    if (!DeviceCatName){
         return res.status(400).json({ message:"Missing required fields" });
     }
 
+    const normalizedDescription = DeviceDescription && DeviceDescription.trim() !== '' ? DeviceDescription : null;
+
     try{
         const request = new sql.Request();
-        const result = await request
+        if (normalizedDescription === null){
+            const result = await request
             .input('DeviceCatName', DeviceCatName)
-            .input('DeviceDescription', DeviceDescription)
+            .query(`
+                INSERT INTO devicecat(DeviceCatName)
+                VALUES (@DeviceCatName);
+
+                SELECT SCOPE_IDENTITY() AS DeviceCatId;    
+                `) 
+                const newDeviceId = result.recordset[0]?.DeviceCatId;
+                res.status(200).json({
+                message:"Category Created Successfully",
+                DeviceCategoryId:newDeviceId,
+            });
+
+        } else
+    {    const result = await request
+            .input('DeviceCatName', DeviceCatName)
+            .input('DeviceDescription', normalizedDescription)
             .query(`
                 INSERT INTO devicecat(DeviceCatName, DeviceDescription)
                 VALUES (@DeviceCatName, @DeviceDescription);
 
                 SELECT SCOPE_IDENTITY() AS DeviceCatId;    
                 `) 
+            const newDeviceId = result.recordset[0]?.DeviceCatId;
+            res.status(200).json({
+                message:"Category Created Successfully",
+                DeviceCategoryId:newDeviceId,
+            });
+            }
         
-        const newDeviceId = result.recordset[0]?.DeviceCatId;
+        
 
-        res.status(200).json({
-            message:"Category Created Successfully",
-            DeviceCategoryId:newDeviceId,
-        });
 
     } catch (error: any){
         console.error("Error creating device category",error);
