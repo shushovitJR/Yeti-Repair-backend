@@ -106,7 +106,7 @@ export const updateStatus = async (req: Request, res: Response)=>{
         }
         if (statusDescription!== undefined){
             updates.push('StatusDescription = @StatusDescription');
-            request.input('StatusDescription', statusColor);
+            request.input('StatusDescription', statusDescription);
         }
         if (statusColor!== undefined){
             updates.push('Color = @Color');
