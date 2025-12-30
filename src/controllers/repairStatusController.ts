@@ -14,7 +14,7 @@ export const createStatus = async (req: Request, res: Response)=>{
         typeof statusDescription !== 'string' || !statusDescription.trim()
   ){
     return res.status(400).json({
-      message: 'statusName, statusColor, and statusDescription are required'
+      message: 'Fill all the required fields'
     });
 };
 
