@@ -3,145 +3,129 @@ import sql from '../config/db';
 
 export const createRepairRequest = async (req: Request, res: Response) => {
   const {
-    DeviceCategory,
-    DeviceName,
     IssueDescription,
     IssueDate,
     ReturnDate,
     VendorName,
-    RepairStatus = 'Pending',
+    Cost,
+    DeviceName,
+    Category,
+    Status = 'Pending',
   } = req.body;
 
-  if (!DeviceCategory || !DeviceName || !IssueDescription || !VendorName || !IssueDate) {
-    return res.status(400).json({
-      message: 'Missing required fields: DeviceCategory, DeviceName, IssueDescription, and VendorId',
-    });
+  if (!IssueDescription || !VendorName || !DeviceName || !Category){
+    return res.status(400).json({ message:"Missing required fields" });
   }
 
-  try {
-    let DeviceId: number;
-    let VendorId: number;
-
-    // Query 1: Check if device exists → NEW REQUEST
-    const checkRequest = new sql.Request();
-    const deviceCheck = await checkRequest
-      .input('DeviceName', DeviceName)
-      .input('DeviceCategory', DeviceCategory)
-      .query(`
-        SELECT DeviceId 
-        FROM device 
-        WHERE DeviceName = @DeviceName 
-          AND DeviceCategory = @DeviceCategory
+  try{
+    const request = new sql.Request();
+    const vendorCheck = await request.input('VendorName', VendorName).query(`
+        SELECT VendorId FROM vendor
+        WHERE VendorName = @VendorName; 
       `);
+      if (vendorCheck.recordset.length === 0){
+        return res.status(400).json({ message:"Vendor Doesn't Exist" })
+      }
 
-    if (deviceCheck.recordset.length > 0) {
-      DeviceId = deviceCheck.recordset[0].DeviceId;
-    } else {
-      // Query 2: Insert new device → NEW REQUEST
-      const insertDeviceRequest = new sql.Request();
-      const insertDevice = await insertDeviceRequest
-        .input('DeviceCategory', DeviceCategory)
+      const VendorId = vendorCheck.recordset[0].VendorId;
+
+    const categoryCheck = await request.input('DeviceCatName', Category).query(`
+        SELECT DeviceCatId from devicecat
+        WHERE DeviceCatName = @DeviceCatName;
+      `);
+    if (categoryCheck.recordset.length === 0){
+      return res.status(400).json({ message:"Device Category Doesn't exist" })
+    }
+    const CategoryId = categoryCheck.recordset[0].DeviceCatId;
+
+    const statusCheck = await request.input('RepairStatusName', Status).query(`
+        SELECT RepairStatusId FROM repairstatus
+        WHERE RepairStatusName = @RepairStatusName;
+      `)
+    const StatusId = statusCheck.recordset[0].RepairStatusId;
+
+    let DeviceId: number;
+    const createDevice = await request
+        .input('Category', CategoryId)
         .input('DeviceName', DeviceName)
         .query(`
-          INSERT INTO device (DeviceCategory, DeviceName)
-          OUTPUT INSERTED.DeviceId
-          VALUES (@DeviceCategory, @DeviceName);
-        `);
+            INSERT INTO device (DeviceName, Category)
+            VALUES (@DeviceName, @Category)
 
-      DeviceId = insertDevice.recordset[0].DeviceId;
-    }
+            SELECT SCOPE_IDENTITY() AS DeviceId;
+          `)
+        DeviceId = createDevice.recordset[0].DeviceId;
 
-    const checkVendor = new sql.Request();
-    const vendorResult = await checkVendor
-      .input('VendorName', VendorName)
-      .query(`
-        SELECT VendorId
-        FROM vendor
-        WHERE VendorName = @VendorName
-        `);
+    const result = await request
+          .input('IssueDescription', IssueDescription)
+          .input('IssueDate', IssueDate)
+          .input('ReturnDate', ReturnDate)
+          .input('Cost', Cost)
+          .input('StatusId', StatusId)
+          .input('VendorId', VendorId)
+          .input('DeviceId', DeviceId)
+          .query(`
+              INSERT INTO repair (IssueDescription, IssueDate, ReturnDate, Cost, VendorId, DeviceId, StatusId)
+              VALUES (@IssueDescription, @IssueDate, @ReturnDate, @Cost, @VendorId, @DeviceId, @StatusId)
 
+              SELECT SCOPE_IDENTITY() AS RepairId;
+            `)
+        const RepairId = result.recordset[0].RepairId;
         
-
-        if (vendorResult.recordset.length === 0){
-          return res.status(400).json({
-            message: 'Vendor not found. Please register the vendor before creating a repair request',
+        res.status(201).json({
+          message:"Successfully Created repair request",
+          RepairId,
+          DeviceId,
           })
-        }
-        VendorId = vendorResult.recordset[0].VendorId;
-        
-    // Query 3: Insert repair → NEW REQUEST
-    const repairRequest = new sql.Request();
-    const repairResult = await repairRequest
-      .input('DeviceId', DeviceId)
-      .input('IssueDescription', IssueDescription)
-      .input('IssueDate', IssueDate || null)
-      .input('ReturnDate', ReturnDate || null)
-      .input('RepairStatus', RepairStatus)
-      .input('VendorId', VendorId)
-      .query(`
-        INSERT INTO repair 
-        (DeviceId, IssueDescription, IssueDate, ReturnDate, RepairStatus, VendorId)
-        VALUES 
-        (@DeviceId, @IssueDescription, @IssueDate, @ReturnDate, @RepairStatus, @VendorId)
-        
-        SELECT SCOPE_IDENTITY() AS RepairId;
-      `);
-
-    const newRepairId = repairResult.recordset[0]?.RepairId;
-
-    res.status(201).json({
-      message: 'Repair request created successfully',
-      repairId: newRepairId,
-      deviceId: DeviceId,
-    });
-  } catch (error: any) {
-    console.error('Error creating repair request:', error);
-    res.status(500).json({ 
-      message: 'Failed to create repair request',
-      // Optional: include error.message only in development
-      // error: error.message 
-    });
+  } catch (error: any){
+      console.error('Failed to create repair request', error);
+      res.status(500).json({ message:"Failed to create repair record" });
   }
 };
 
 export const getRepairRequest = async (req: Request, res: Response)=>{
   try{
-    const request = new sql.Request();
+          const request = new sql.Request();
+          const result = await request.query(`
+                  SELECT
+                  r.RepairId,
+                  r.IssueDescription,
+                  r.IssueDate,
+                  r.ReturnDate,
+                  r.Cost,
+                  s.RepairStatusName AS StatusName,
+                  s.Color,
+                  d.DeviceName,
+                  dc.DeviceCatName AS Category,
+                  v.VendorName
+              FROM repair r
+                  LEFT JOIN repairstatus s ON r.StatusId = s.RepairStatusId
+                  LEFT JOIN device d ON r.DeviceId = d.DeviceId
+                  LEFT JOIN devicecat dc ON d.Category = dc.DeviceCatId
+                  LEFT JOIN vendor v ON r.VendorId = v.VendorId
+              ORDER BY 
+                  r.RepairId DESC;   
+              `);
 
-    const result = await request.query(
-      `SELECT
-        r.RepairId,
-        r.IssueDescription AS Issue,
-        r.IssueDate,
-        r.ReturnDate,
-        r.RepairStatus AS Status,
-        d.DeviceName,
-        d.DeviceCategory AS Category,
-        v.VendorName AS Vendor
-      FROM repair r
-      INNER JOIN device d ON r.DeviceId = d.DeviceId
-      INNER JOIN vendor v ON r.VendorId = v.VendorId
-      ORDER BY r.IssueDate DESC;
-      `);
+              const repairs = result.recordset.map((row: any)=>({
+                RepairId: `REQ${String(row.RepairId).padStart(3, '0')}`,
+                Issue: row.IssueDescription,
+                IssueDate: row.IssueDate ? row.IssueDate.toISOString().split('T')[0] : null,
+                ReturnDate: row.ReturnDate ? row.ReturnDate.toISOString().split('T')[0] : null,
+                Cost: row.Cost,
+                Status: row.StatusName,
+                Color: row.Color,
+                DeviceName: row.DeviceName,
+                Category: row.Category,
+                Vendor: row.VendorName,
+              }))
 
-      const repairs = result.recordset.map((row: any) => ({
-      RepairId: `REP${String(row.RepairId).padStart(3, '0')}`, // e.g., REP001
-      DeviceName: row.DeviceName,
-      Category: row.Category,
-      Issue: row.Issue,
-      IssueDate: row.IssueDate ? row.IssueDate.toISOString().split('T')[0] : '-',
-      ReturnDate: row.ReturnDate ? row.ReturnDate.toISOString().split('T')[0] : '-',
-      Status: row.Status,
-      Vendor: row.Vendor,
-    }));
-    
-    res.status(200).json(repairs);
-  } catch (error: any){
-    console.error('Error fetching repair requests:', error);
-    res.status(500).json({
-      message: 'Failed to fetch repair requests',
-    });
-  }
+
+          res.status(200).json(repairs);
+      } catch (error: any){
+          console.error('Failed to retreive repair requests', error);
+          res.status(500).json({ message:"Failed to get repair requests" });
+      }
 };
 
 export const getRepairRequestById = async (req: Request, res: Response)=>{
@@ -158,20 +142,22 @@ export const getRepairRequestById = async (req: Request, res: Response)=>{
     const result = await request
       .input('RepairId', RepairId)
       .query(`
-        SELECT
+          SELECT
           r.RepairId,
-          r.DeviceId,
           r.IssueDescription AS Issue,
           r.IssueDate,
           r.ReturnDate,
-          r.RepairStatus AS Status,
-          d.DeviceCategory AS Category,
+          s.RepairStatusName AS Status,
+          r.Cost,
+          dc.DeviceCatName AS Category,
           d.DeviceName,
           v.VendorName AS Vendor
         FROM repair r
         INNER JOIN device d ON r.DeviceId = d.DeviceId
+        INNER JOIN devicecat dc ON d.DeviceId = dc.DeviceCatId
         INNER JOIN vendor v ON r.VendorId = v.VendorId
-        WHERE r.RepairId = @RepairId;
+        INNER JOIN repairstatus s ON r.StatusId = s.RepairStatusId
+          WHERE r.RepairId = @RepairId;
         `);
         if (result.recordset.length === 0){
           return res.status(404).json({message: "Repair request not found"});
@@ -184,6 +170,7 @@ export const getRepairRequestById = async (req: Request, res: Response)=>{
       category: repair.Category,
       name: repair.DeviceName,
       issue: repair.Issue,
+      cost: repair.Cost,
       issueDate: repair.IssueDate ? repair.IssueDate.toISOString().split('T')[0] : null,
       returnedDate: repair.ReturnDate ? repair.ReturnDate.toISOString().split('T')[0] : null,
       status: repair.Status,
@@ -197,127 +184,116 @@ export const getRepairRequestById = async (req: Request, res: Response)=>{
   }
 };
 
-type UpdateFields = {
-  IssueDescription?: string;
-  IssueDate?: string;
-  ReturnDate?: string | null;
-  RepairStatus?: string;
-  VendorName?: string;  // <-- NEW: Accept VendorName instead of VendorId
-};
-
-const VALID_STATUSES = ['Pending', 'In Progress', 'Completed'];
-
 export const updateRepairRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
   const RepairId = Number(id);
 
-  if (isNaN(RepairId) || RepairId <= 0) {
-    return res.status(400).json({ message: 'Invalid repair ID' });
+  if (isNaN(RepairId) || RepairId <= 0){
+    return res.status(400).json({ message:"Invalid repair id" });
   }
 
   const {
     IssueDescription,
     IssueDate,
     ReturnDate,
-    RepairStatus,
-    VendorName,  // <-- Now we expect VendorName
-  } = req.body as UpdateFields;
+    VendorName,
+    Status,
+    Cost,
+  } = req.body;
 
-  // Check if at least one field is provided
-  if (
-    !IssueDescription &&
-    !IssueDate &&
-    !ReturnDate &&
-    !RepairStatus &&
-    !VendorName
-  ) {
-    return res.status(400).json({ message: 'No fields provided to update' });
-  }
+    if (!IssueDescription && ! IssueDate && !ReturnDate && !VendorName && !Status && !Cost){
+      return res.status(400).json({ message:"No fields provided to edit" });
+    }
 
-  if (RepairStatus && !VALID_STATUSES.includes(RepairStatus)) {
-    return res.status(400).json({
-      message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`,
-    });
-  }
+    if (IssueDescription !== undefined && (typeof IssueDescription !== 'string' || IssueDescription.trim() === '' )){
+        return res.status(400).json({ message:"Issue Description is of invalid type" });
+    }
+    if (IssueDate !== undefined && (typeof IssueDate !== 'string' || IssueDate.trim() === '' )){
+        return res.status(400).json({ message:"Issue Date is of invalid type" });
+    }
+    if (ReturnDate !== undefined && (typeof ReturnDate !== 'string' || ReturnDate.trim() === '' )){
+        return res.status(400).json({ message:"Return Date is of invalid type" });
+    }
+    if (VendorName !== undefined && (typeof VendorName !== 'string' || VendorName.trim() === '' )){
+        return res.status(400).json({ message:"Vendor Name is of invalid type" });
+    }
+    if (Status !== undefined && (typeof Status !== 'string' || Status.trim() === '' )){
+        return res.status(400).json({ message:"Status is of invalid type" });
+    }
+   
 
-  try {
-    const request = new sql.Request();
+    try{
+      const request = new sql.Request()
+      const updates: string[] = [];
 
-    // Step 1: If VendorName is provided, look up VendorId
-    let VendorId: number | null = null;
-    if (VendorName !== undefined) {
-      const vendorResult = await request
-        .input('VendorName', sql.NVarChar, VendorName)
-        .query(`
-          SELECT VendorId 
-          FROM Vendor 
-          WHERE VendorName = @VendorName
-        `);
+        const checkStatus = await request.input('RepairStatusName', Status).query(`
+            SELECT RepairStatusId FROM repairstatus
+            WHERE RepairStatusName = @RepairStatusName;
+          `)
+          if (checkStatus.recordset.length === 0){
+            return res.status(400).json({ message:"Status name not specified or doesn't exist" });
+          }
+          
+          const StatusId = checkStatus.recordset[0].RepairStatusId;
 
-      if (vendorResult.recordset.length === 0) {
-        return res.status(400).json({
-          message: `Vendor "${VendorName}" not found`,
-        });
+
+        const checkVendor = await request.input('VendorName', VendorName).query(`
+            SELECT VendorId FROM vendor
+            WHERE VendorName = @VendorName;
+          `)
+          if (checkVendor.recordset.length === 0){
+            return res.status(400).json({ message:"Vendor name not specified or doesn't exist" });
+          }
+          
+          const VendorId = checkVendor.recordset[0].VendorId;
+         
+    if (IssueDescription !== undefined){
+      updates.push('IssueDescription = @IssueDescription')
+      request.input('IssueDescription', IssueDescription)
+    }
+    if (IssueDate !== undefined){
+      updates.push('IssueDate = @IssueDate')
+      request.input('IssueDate', IssueDate)
+    }
+    if (ReturnDate !== undefined){
+      updates.push('ReturnDate = @ReturnDate')
+      request.input('ReturnDate', ReturnDate)
+    }
+    if (VendorId !== undefined){
+      updates.push('VendorId = @VendorId')
+      request.input('VendorId', VendorId)
+    }
+    if (StatusId !== undefined){
+      updates.push('StatusId = @StatusId')
+      request.input('StatusId', StatusId)
+    }
+    if (Cost !== undefined){
+      updates.push('Cost = @Cost')
+      request.input('Cost', Cost)
+    }
+
+    const result = await request.input("RepairId", RepairId).query(`
+          UPDATE repair
+          SET ${updates.join(', ')}
+          WHERE RepairId = @RepairId;
+      `);
+
+      if (result.rowsAffected[0] === 0){
+        return res.status(404).json({ message:"Repair not found" })
       }
 
-      VendorId = vendorResult.recordset[0].VendorId;
+      res.status(200).json({ 
+        message: "Successfully updated repair request",
+        RepairId,
+       })
+
+    } catch(error: any){
+      console.error("Failed to update repair request", error);
+      res.status(500).json({ message:"Failed to update repair record" });
     }
 
-    // Step 2: Build the UPDATE query
-    let updateQuery = 'UPDATE repair SET ';
-    const updates: string[] = [];
-    const params: any = {};
-
-    if (IssueDescription !== undefined) {
-      updates.push('IssueDescription = @IssueDescription');
-      params.IssueDescription = IssueDescription;
-    }
-    if (IssueDate !== undefined) {
-      updates.push('IssueDate = @IssueDate');
-      params.IssueDate = IssueDate;
-    }
-    if (ReturnDate !== undefined) {
-      updates.push('ReturnDate = @ReturnDate');
-      params.ReturnDate = ReturnDate === null || ReturnDate === '' ? null : ReturnDate;
-    }
-    if (RepairStatus !== undefined) {
-      updates.push('RepairStatus = @RepairStatus');
-      params.RepairStatus = RepairStatus;
-    }
-    if (VendorName !== undefined) {
-      // We already have VendorId from lookup
-      updates.push('VendorId = @VendorId');
-      params.VendorId = VendorId;
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ message: 'No valid fields to update' });
-    }
-
-    updateQuery += updates.join(', ');
-    updateQuery += ' WHERE RepairId = @RepairId';
-
-    // Step 3: Add RepairId to parameters
-    request.input('RepairId', sql.Int, RepairId);
-
-    // Step 4: Add all other parameters
-    Object.entries(params).forEach(([key, value]) => {
-      request.input(key, value);
-    });
-
-    // Step 5: Execute the update
-    const result = await request.query(updateQuery);
-
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: 'Repair request not found' });
-    }
-
-    res.status(200).json({
-      message: 'Repair request updated successfully',
-      RepairId: RepairId,
-    });
-  } catch (error: any) {
-    console.error('Error updating repair request:', error);
-    res.status(500).json({ message: 'Failed to update repair request' });
-  }
 };
+
+export const deleteRepairRequest = async (req: Request, res: Response) => {
+  
+}
