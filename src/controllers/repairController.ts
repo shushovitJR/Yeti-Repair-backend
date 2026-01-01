@@ -108,7 +108,7 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
               `);
 
               const repairs = result.recordset.map((row: any)=>({
-                RepairId: `REQ${String(row.RepairId).padStart(3, '0')}`,
+                RepairId: `REP${String(row.RepairId).padStart(3, '0')}`,
                 Issue: row.IssueDescription,
                 IssueDate: row.IssueDate ? row.IssueDate.toISOString().split('T')[0] : null,
                 ReturnDate: row.ReturnDate ? row.ReturnDate.toISOString().split('T')[0] : null,
@@ -295,5 +295,32 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
 };
 
 export const deleteRepairRequest = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const RepairId = Number(id);
   
+  if (isNaN(RepairId) || RepairId <= 0){
+    return res.status(400).json({ message:"Invalid repair id" });
+  }
+
+  try{
+    const request = new sql.Request();
+    const result = await request.input('RepairId', RepairId)
+      .query(`
+          DELETE FROM repair
+          WHERE RepairId = @RepairId;
+        `);
+
+    if (result.rowsAffected[0]===0){
+      return res.status(400).json({ message:"Could not find repair id" });
+    }
+
+    res.status(200).json({ 
+      message:"Successfully deleted the repair request",
+      RepairId,
+     });
+  } catch (error: any) {
+      console.error('Failed to delete the repair', error);
+      res.status(500).json({ message:"Failed to remove repair request" });
+  }
+
 }

@@ -3,121 +3,118 @@ import sql from '../config/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
 
 export const createRequest = async (req: AuthRequest, res: Response)=>{
-    const {
-        DeviceCategory,
+    const { 
         DeviceName,
+        Category,
         Reason,
-        RequestStatus = 'Pending',
-    } = req.body;
-    const RequestedBy = req.user?.UserId;
+        Status = 'Pending'
+     } = req.body
+     const UserName = req.user?.UserId;
 
-    if (!RequestedBy || !DeviceCategory || !DeviceName || !Reason){
-        return res.status(400).json({
-            message: 'Missing required fields',
-        });
-    }
+     if (!DeviceName || !Category || !Reason){
+        return res.status(400).json({ message:"Fill all the fields" });
+     }
+     if (!UserName){
+        return res.status(400).json({ message:"Cannot find user" })
+     }
+     try{
+        const request = new sql.Request();
+        const checkStatus = await request.input('RequestStatusName', Status)
+            .query(`
+                    SELECT RequestStatusId FROM requeststatus
+                    WHERE RequestStatusName = @RequestStatusName;
+                `);
+            if (checkStatus.recordset.length === 0){
+                return res.status(400).json({ message:"Status Not Found" })
+            }
+            const StatusId = checkStatus.recordset[0].RequestStatusId;
 
-    try{
-        let DeviceId: number;
+        const checkDeviceCat = await request.input('DeviceCatName', Category)
+            .query(`
+                    SELECT DeviceCatId from devicecat
+                    WHERE DeviceCatName = @DeviceCatName
+                `);
 
-        const checkRequest = new sql.Request();
-        const deviceCheck = await checkRequest
+            if (checkDeviceCat.recordset.length === 0){
+                return res.status(400).json({ message:"Device Category not found" });
+            }
+            const CategoryId = checkDeviceCat.recordset[0].DeviceCatId;
+
+        const createDevice = await request
             .input('DeviceName', DeviceName)
-            .input('Devicecategory', DeviceCategory)
+            .input('Category', CategoryId)
             .query(`
-                SELECT DeviceId 
-                FROM device 
-                WHERE DeviceName = @DeviceName 
-                AND DeviceCategory = @DeviceCategory
+                    INSERT INTO device(DeviceName, Category)
+                    VALUES (@DeviceName, @Category);
+
+                    SELECT SCOPE_IDENTITY() AS DeviceId
                 `);
-        if (deviceCheck.recordset.length > 0){
-            DeviceId = deviceCheck.recordset[0].DeviceId;
-        } else {
-            const insertDeviceRequest = new sql.Request();
-            const insertDevice = await insertDeviceRequest
-                .input('DeviceCategory', DeviceCategory)
-                .input('DeviceName', DeviceName)
-                .query(`
-                    INSERT INTO device (DeviceCategory, DeviceName)
-                    OUTPUT INSERTED.DeviceId
-                    VALUES (@DeviceCategory, @DeviceName);
-                    `);
-            DeviceId = insertDevice.recordset[0].DeviceId;
-        }
+            const DeviceId = createDevice.recordset[0].DeviceId;
 
-        const today = new Date();
-        const formatteddate = today.toISOString().split('T')[0];
-
-        const deviceRequest = new sql.Request();
-        const result = await deviceRequest
+        const result = await request
             .input('DeviceId', DeviceId)
-            .input('RequestDate', formatteddate)
             .input('Reason', Reason)
-            .input('RequestedBy', RequestedBy)
-            .input('RequestStatus', RequestStatus)
+            .input('StatusId', StatusId)
+            .input('UserId', UserName)
             .query(`
-                INSERT INTO request
-                (DeviceId, RequestDate, Reason, RequestedBy, RequestStatus)
-                VALUES
-                (@DeviceId, @RequestDate, @Reason, @RequestedBy, @RequestStatus);
+                    INSERT INTO request (Reason, DeviceId, StatusId, UserId)
+                    VALUES (@Reason, @DeviceId, @StatusId, @UserId)
+                    
+                    SELECT SCOPE_IDENTITY() AS RequestId;
+                `)
+            const RequestId = result.recordset[0].RequestId;
 
-                SELECT SCOPE_IDENTITY() AS RequestId;
-                `);
-
-                const newRequestId = result.recordset[0]?.RequestId;
-
-                res.status(201).json({
-                    message: 'Request Created Successfully',
-                    RequestId: newRequestId,
-                    DeviceId: DeviceId,
-                });
-    } catch (error: any){
-        console.error('Error creating request:', error);
-        res.status(500).json({
-            message: 'Failed to create device request',
-        });
-    }
+            res.status(201).json({ 
+                message:"Successfully created a request",
+                RequestId,
+             })
+     } catch (error: any){
+        console.error('Failed to create request', error)
+        res.status(500).json({ message:"Failed to create device request" })
+     }
 };
 
 export const getRequest = async (req: Request, res: Response)=>{
     try{
         const request = new sql.Request();
-
         const result = await request.query(`
-           SELECT
-           r.RequestId,
-           r.RequestDate,
-           r.Reason,
-           r.RequestStatus AS Status,
-           d.DeviceName,
-           d.DeviceCategory AS Category,
-            u.EmployeeName AS Name,
-            e.DepartmentName AS Department
-
-            FROM request r
-            INNER JOIN device d ON r.DeviceId = d.DeviceId
-            INNER JOIN users u ON r.RequestedBy = u.UserId
-            INNER JOIN department e ON u.DepartmentId = e.DepartmentId
-            ORDER BY r.RequestDate DESC;
+                SELECT 
+                r.RequestId,
+                r.Reason,
+                r.RequestDate,
+                r.RecieveDate,
+                s.RequestStatusName,
+                s.Color,
+                d.DeviceName,
+                dc.DeviceCatName,
+                u.EmployeeName,
+                de.DepartmentName
+                FROM request r
+                LEFT JOIN requeststatus s ON r.StatusId = s.RequestStatusId
+                LEFT JOIN device d ON r.DeviceId = d.DeviceId
+                LEFT JOIN devicecat dc ON d.Category = dc.DeviceCatId
+                LEFT JOIN users u ON r.UserId = u.UserId
+                LEFT JOIN department de ON u.DepartmentId = de.DepartmentId
+                ORDER BY 
+                    r.RequestId DESC;
             `);
+        const requests = result.recordset.map((row: any)=>({
+            RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
+            Reason: row.Reason,
+            RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
+            RecieveDate: row.RecieveDate ? row.RecieveDate.toISOString().split('T')[0] : null,
+            Status: row.RequestStatusName,
+            Color: row.Color,
+            DeviceName: row.DeviceName,
+            Category: row.DeviceCatName,
+            Name: row.EmployeeName,
+            Department: row.DepartmentName,
+        }))
 
-            const requests = result.recordset.map((row: any) =>({
-                RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
-                DeviceName: row.DeviceName,
-                Category: row.Category,
-                RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
-                Reason: row.Reason,
-                Status: row.Status,
-                RequestedBy: row.Name,
-                Department: row.Department,
-            }));
-
-            res.status(200).json(requests);
+        res.status(200).json({ requests });
     } catch (error: any){
-        console.error('Error fetching requests from db:', error);
-        res.status(500).json({
-            message: 'Failed to fetch requests from db',
-        });
+        console.error("Failed to fetch Device Requests");
+        res.status(500).json({ message:"Failed to get Request Data" });
     }
 };
 
@@ -176,73 +173,115 @@ export const getRequestById = async (req: Request, res: Response)=>{
     }
 }; 
 
-type UpdateFields = {
-    Reason?: string;
-    RequestStatus?: string;
-};
-
-const VALID_STATUSES = ['Pending', 'Received', 'On Hold', 'Canceled'];
-
-export const updateRequest = async (req: AuthRequest, res: Response) => {
-  // Get ID from URL params (e.g., /requests/:id)
+export const updateRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
   const RequestId = Number(id);
 
-  if (isNaN(RequestId) || RequestId <= 0) {
-    return res.status(400).json({ message: 'Invalid request ID' });
+  if (isNaN(RequestId) || RequestId <= 0){
+    return res.status(400).json({ message:"Invalid request id" })
   }
 
-  const { Reason, RequestStatus } = req.body as UpdateFields;
+  const {
+    Reason,
+    RequestDate,
+    RecieveDate,
+    Status,
+  } = req.body;
 
-  // Check if at least one field is provided
-  if (Reason === undefined && RequestStatus === undefined) {
-    return res.status(400).json({ message: 'No fields provided to update' });
-  }
-
-  // Validate status if provided
-  if (RequestStatus !== undefined && !VALID_STATUSES.includes(RequestStatus)) {
-    return res.status(400).json({
-      message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`,
-    });
-  }
-
-  try {
-    const request = new sql.Request();
-
-    let updateQuery = 'UPDATE request SET ';
-    const updates: string[] = [];
-    const params: Record<string, any> = {};
-
-    if (Reason !== undefined) {
-      updates.push('Reason = @Reason');
-      params.Reason = Reason;
+    if (!Reason && ! RequestDate && !RecieveDate && !Status){
+      return res.status(400).json({ message:"No fields provided to edit" });
     }
-    if (RequestStatus !== undefined) {
-      updates.push('RequestStatus = @RequestStatus');
-      params.RequestStatus = RequestStatus;
+    if (Reason !== undefined && (typeof Reason !== 'string' || Reason.trim() === '' )){
+        return res.status(400).json({ message:"Reason is of invalid type" });
+    }
+    if (RequestDate !== undefined && (typeof RequestDate !== 'string' || RequestDate.trim() === '' )){
+        return res.status(400).json({ message:"Request Date is of invalid type" });
+    }
+    if (RecieveDate !== undefined && (typeof RecieveDate !== 'string' || RecieveDate.trim() === '' )){
+        return res.status(400).json({ message:"Recieve Date is of invalid type" });
+    }
+    if (Status !== undefined && (typeof Status !== 'string' || Status.trim() === '' )){
+        return res.status(400).json({ message:"Status is of invalid type" });
     }
 
-    updateQuery += updates.join(', ');
-    updateQuery += ' WHERE RequestId = @RequestId';
+    try{
+        const request = new sql.Request();
+        const updates: string[] = [];
 
-    // Add all inputs
-    request.input('RequestId', RequestId);
-    Object.keys(params).forEach((key) => {
-      request.input(key, params[key]);
-    });
+        const checkStatus = await request.input('RequestStatusName', Status)
+            .query(`
+                    SELECT RequestStatusId FROM requeststatus
+                    WHERE RequestStatusName = @RequestStatusName;  
+                `)
+            if (checkStatus.recordset.length === 0){
+                return res.status(400).json({ message:"Status name doesn't exist" })
+            }
+            const StatusId = checkStatus.recordset[0].RequestStatusId;
 
-    const result = await request.query(updateQuery);
+            if (Reason !== undefined){
+                updates.push('Reason = @Reason')
+                request.input('Reason', Reason)
+            }
+            if (RequestDate !== undefined){
+                updates.push('RequestDate = @RequestDate')
+                request.input('RequestDate', RequestDate)
+            }
+            if (RecieveDate !== undefined){
+                updates.push('RecieveDate = @RecieveDate')
+                request.input('RecieveDate', RecieveDate)
+            }
+            if (StatusId !== undefined){
+                updates.push('StatusId = @StatusId')
+                request.input('StatusId', StatusId)
+            }
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: 'Request not found' });
+            const result = await request.input('RequestId',RequestId).query(`
+                UPDATE request 
+                SET ${updates.join(', ')}
+                WHERE RequestId = @RequestId;
+          `)
+
+          if (result.rowsAffected[0] === 0){
+            return res.status(404).json({ message:'Request Id not found' })
+          }
+
+          res.status(200).json({
+            message: "Successfully updated request status",
+            RequestId,
+          })
+    } catch (error: any){
+        console.error('Failed to update request', error);
+        res.status(500).json({ message:'Failed to update device request' })
     }
 
-    res.status(200).json({
-      message: 'Repair request updated successfully',
-      RequestId,
-    });
-  } catch (error: any) {
-    console.error('Error updating request:', error);
-    res.status(500).json({ message: 'Failed to update repair request' });
-  }
 };
+
+export const deleteRequest = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const RequestId = Number(id);
+
+    if (isNaN(RequestId) || RequestId <= 0){
+        return res.status(400).json({ message:"Invalid Id" })
+    }
+
+    try{
+        const request = new sql.Request();
+        const result = await request.input('RequestId', RequestId)
+                .query(`
+                        DELETE FROM request
+                        WHERE RequestId = @RequestId;
+                    `)
+        if (result.rowsAffected[0] === 0){
+            return res.status(400).json({ message:"Request ID not found" })
+        }
+
+        res.status(200).json({ 
+            message:"Successfully Delete Request",
+            RequestId,
+         })
+        
+    } catch(error: any){
+        console.error('Failed to delete request');
+        res.status(500).json({ message:"Failed to delete device request" })
+    }
+}
