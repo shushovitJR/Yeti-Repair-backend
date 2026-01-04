@@ -12,6 +12,8 @@ export const createRepairRequest = async (req: Request, res: Response) => {
     Category,
     Status = 'Pending',
   } = req.body;
+  
+  // console.log('Create repair request body:', req.body);
 
   if (!IssueDescription || !VendorName || !DeviceName || !Category){
     return res.status(400).json({ message:"Missing required fields" });
@@ -208,10 +210,10 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
     if (IssueDescription !== undefined && (typeof IssueDescription !== 'string' || IssueDescription.trim() === '' )){
         return res.status(400).json({ message:"Issue Description is of invalid type" });
     }
-    if (IssueDate !== undefined && (typeof IssueDate !== 'string' || IssueDate.trim() === '' )){
+    if (IssueDate !== undefined && IssueDate !== null && (typeof IssueDate !== 'string' || IssueDate.trim() === '' )){
         return res.status(400).json({ message:"Issue Date is of invalid type" });
     }
-    if (ReturnDate !== undefined && (typeof ReturnDate !== 'string' || ReturnDate.trim() === '' )){
+    if (ReturnDate !== undefined && ReturnDate !== null && (typeof ReturnDate !== 'string' || ReturnDate.trim() === '' )){
         return res.status(400).json({ message:"Return Date is of invalid type" });
     }
     if (VendorName !== undefined && (typeof VendorName !== 'string' || VendorName.trim() === '' )){
