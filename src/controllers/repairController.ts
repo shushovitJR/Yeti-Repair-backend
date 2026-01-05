@@ -130,61 +130,61 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
       }
 };
 
-export const getRepairRequestById = async (req: Request, res: Response)=>{
-  const { id } = req.params;
+// export const getRepairRequestById = async (req: Request, res: Response)=>{
+//   const { id } = req.params;
 
-  const RepairId = Number(id);
-  if (isNaN(RepairId) || RepairId<=0){
-    return res.status(400).json({message: 'Invalid repair ID'});
-  }
+//   const RepairId = Number(id);
+//   if (isNaN(RepairId) || RepairId<=0){
+//     return res.status(400).json({message: 'Invalid repair ID'});
+//   }
 
-  try {
-    const request = new sql.Request();
+//   try {
+//     const request = new sql.Request();
 
-    const result = await request
-      .input('RepairId', RepairId)
-      .query(`
-          SELECT
-          r.RepairId,
-          r.IssueDescription AS Issue,
-          r.IssueDate,
-          r.ReturnDate,
-          s.RepairStatusName AS Status,
-          r.Cost,
-          dc.DeviceCatName AS Category,
-          d.DeviceName,
-          v.VendorName AS Vendor
-        FROM repair r
-        INNER JOIN device d ON r.DeviceId = d.DeviceId
-        INNER JOIN devicecat dc ON d.DeviceId = dc.DeviceCatId
-        INNER JOIN vendor v ON r.VendorId = v.VendorId
-        INNER JOIN repairstatus s ON r.StatusId = s.RepairStatusId
-          WHERE r.RepairId = @RepairId;
-        `);
-        if (result.recordset.length === 0){
-          return res.status(404).json({message: "Repair request not found"});
-        }
+//     const result = await request
+//       .input('RepairId', RepairId)
+//       .query(`
+//           SELECT
+//           r.RepairId,
+//           r.IssueDescription AS Issue,
+//           r.IssueDate,
+//           r.ReturnDate,
+//           s.RepairStatusName AS Status,
+//           r.Cost,
+//           dc.DeviceCatName AS Category,
+//           d.DeviceName,
+//           v.VendorName AS Vendor
+//         FROM repair r
+//         INNER JOIN device d ON r.DeviceId = d.DeviceId
+//         INNER JOIN devicecat dc ON d.DeviceId = dc.DeviceCatId
+//         INNER JOIN vendor v ON r.VendorId = v.VendorId
+//         INNER JOIN repairstatus s ON r.StatusId = s.RepairStatusId
+//           WHERE r.RepairId = @RepairId;
+//         `);
+//         if (result.recordset.length === 0){
+//           return res.status(404).json({message: "Repair request not found"});
+//         }
 
-        const repair = result.recordset[0];
+//         const repair = result.recordset[0];
 
-        const formattedRepair = {
-      repairId: `REP${String(repair.RepairId).padStart(3, '0')}`,
-      category: repair.Category,
-      name: repair.DeviceName,
-      issue: repair.Issue,
-      cost: repair.Cost,
-      issueDate: repair.IssueDate ? repair.IssueDate.toISOString().split('T')[0] : null,
-      returnedDate: repair.ReturnDate ? repair.ReturnDate.toISOString().split('T')[0] : null,
-      status: repair.Status,
-      vendor: repair.Vendor,
-    };
+//         const formattedRepair = {
+//       repairId: `REP${String(repair.RepairId).padStart(3, '0')}`,
+//       category: repair.Category,
+//       name: repair.DeviceName,
+//       issue: repair.Issue,
+//       cost: repair.Cost,
+//       issueDate: repair.IssueDate ? repair.IssueDate.toISOString().split('T')[0] : null,
+//       returnedDate: repair.ReturnDate ? repair.ReturnDate.toISOString().split('T')[0] : null,
+//       status: repair.Status,
+//       vendor: repair.Vendor,
+//     };
 
-    res.status(200).json(formattedRepair);
-  } catch (error: any){
-    console.log('Error fetching repair request:', error);
-    res.status(500).json({message: 'Failed to fetch repair request'});
-  }
-};
+//     res.status(200).json(formattedRepair);
+//   } catch (error: any){
+//     console.log('Error fetching repair request:', error);
+//     res.status(500).json({message: 'Failed to fetch repair request'});
+//   }
+// };
 
 export const updateRepairRequest = async (req: Request, res: Response) => {
   const { id } = req.params;

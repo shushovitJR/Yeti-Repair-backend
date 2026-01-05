@@ -118,60 +118,60 @@ export const getRequest = async (req: Request, res: Response)=>{
     }
 };
 
-export const getRequestById = async (req: Request, res: Response)=>{
-    const { id } = req.params;
+// export const getRequestById = async (req: Request, res: Response)=>{
+//     const { id } = req.params;
 
-    const RequestId = Number(id);
-    if (isNaN(RequestId) || RequestId<=0){
-        return res.status(400).json({message: 'Invalid request ID'});
-    }
+//     const RequestId = Number(id);
+//     if (isNaN(RequestId) || RequestId<=0){
+//         return res.status(400).json({message: 'Invalid request ID'});
+//     }
 
-    try {
-        const request = new sql.Request();
+//     try {
+//         const request = new sql.Request();
 
-        const result = await request
-            .input('RequestId', RequestId)
-            .query(`
-                SELECT
-                r.RequestId,
-                u.EmployeeName AS RequestedBy,
-                d.DeviceCategory,
-                d.DeviceName,
-                r.Reason,
-                r.RequestStatus AS Status,
-                e.DepartmentName AS Department,
-                r.RequestDate
+//         const result = await request
+//             .input('RequestId', RequestId)
+//             .query(`
+//                 SELECT
+//                 r.RequestId,
+//                 u.EmployeeName AS RequestedBy,
+//                 d.DeviceCategory,
+//                 d.DeviceName,
+//                 r.Reason,
+//                 r.RequestStatus AS Status,
+//                 e.DepartmentName AS Department,
+//                 r.RequestDate
 
-                FROM request r
-                INNER JOIN device d ON r.DeviceId = d.DeviceId
-                INNER JOIN users u ON r.RequestedBy = u.UserId
-                INNER JOIN department e ON u.DepartmentId = e.DepartmentId
+//                 FROM request r
+//                 INNER JOIN device d ON r.DeviceId = d.DeviceId
+//                 INNER JOIN users u ON r.RequestedBy = u.UserId
+//                 INNER JOIN department e ON u.DepartmentId = e.DepartmentId
                 
-                WHERE r.RequestId = @RequestId;
-                `);
-                if (result.recordset.length === 0){
-                    return res.status(404).json({message: "Request not found"});
-                }
+//                 WHERE r.RequestId = @RequestId;
+//                 `);
+//                 if (result.recordset.length === 0){
+//                     return res.status(404).json({message: "Request not found"});
+//                 }
 
-                const row = result.recordset[0];
+//                 const row = result.recordset[0];
 
-                const formattedRepair = {
-                    RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
-                    DeviceName: row.DeviceName,
-                    category: row.DeviceCategory,
-                    RequestedBy: row.RequestedBy,
-                    Reason: row.Reason,
-                    Status: row.Status,
-                    Department: row.Department,
-                    RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
-                };
-                res.status(200).json(formattedRepair);
+//                 const formattedRepair = {
+//                     RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
+//                     DeviceName: row.DeviceName,
+//                     category: row.DeviceCategory,
+//                     RequestedBy: row.RequestedBy,
+//                     Reason: row.Reason,
+//                     Status: row.Status,
+//                     Department: row.Department,
+//                     RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
+//                 };
+//                 res.status(200).json(formattedRepair);
 
-    } catch (error: any){
-        console.error('Error fetching request by ID from db:', error);
-        res.status(500).json({message: 'Failed to fetch request by id from db'});
-    }
-}; 
+//     } catch (error: any){
+//         console.error('Error fetching request by ID from db:', error);
+//         res.status(500).json({message: 'Failed to fetch request by id from db'});
+//     }
+// }; 
 
 export const updateRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
