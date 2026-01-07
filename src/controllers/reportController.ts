@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import sql from '../config/db';
-import { stat } from 'node:fs';
 
 export const reportTable_Repair = async (req: Request, res: Response) => {
     try{
@@ -144,4 +143,67 @@ export const requestSummary = async (req: Request, res: Response) => {
         console.error("Failed to get request summary", error);
         res.status(500).json({ message:"Failed to fetch request summary" })
     }
+}
+
+export const deviceCategoryChart = async (req: Request, res: Response) => {
+    try{
+        const request = new sql.Request();
+        const result = await request.query(`
+                SELECT 
+                dc.DeviceCatName AS category,
+                COUNT(dc.DeviceCatName) AS count
+                FROM device d
+                JOIN devicecat dc ON d.Category = dc.DeviceCatId
+                GROUP BY dc.DeviceCatName;
+            `)
+        const categories = result.recordset.map((row)=>({
+            category: row.category,
+            count: row.count,
+        }))
+
+        res.status(200).json(categories);
+    } catch (error: any){
+        console.error("Failed to get catgory count", error);
+        res.status(500).json({ message:"Failed to fetch category count" });
+    }
+}
+
+export const requestMetric = async (req: Request, res: Response) => {
+    try{
+        const request = new sql.Request();
+        const result = await request.query(`
+                SELECT
+                SUM(CASE WHEN s.RequestStatusName = 'Recieved' THEN 1 ELSE 0 END) AS recieved,
+                SUM(CASE WHEN s.RequestStatusName NOT IN ('Recieved', 'Cancelled') THEN 1 ELSE 0 END) AS pending
+                FROM request r
+                JOIN requeststatus s ON r.StatusId = s.RequestStatusId;
+            `)
+        const requests = result.recordset.map((row)=>({
+            recieved: row.recieved,
+            pending: row.pending,
+        }))
+
+        res.status(200).json(requests);
+    } catch (error: any){
+        console.error("Failed to get request metric", error);
+        res.status(500).json({ message:"Failed to fetch request metric" });
+    }
+}
+
+export const repairMetric = async (req: Request, res: Response) => {
+    try {const request = new sql.Request();
+    const result = await request.query(`
+                    SELECT
+            SUM(CASE WHEN s.RepairStatusName NOT IN ('Recieved','Repaired','Cancelled') THEN 1 ELSE 0 END) AS underrepair,
+            SUM(CASE WHEN MONTH(r.IssueDate)=MONTH(GETDATE())
+                AND YEAR(r.IssueDate)=YEAR(GETDATE()) THEN r.cost ELSE 0 END ) AS cost
+            FROM repair r
+            JOIN repairstatus s ON r.StatusId = s.RepairStatusId;  
+        `)
+    const repairs = result.recordset[0];
+    res.status(200).json(repairs)
+        } catch (error: any){
+            console.error('Failed to get repair metric', error)
+            res.status(500).json({ message:"Failed to fetch repair metric" })
+        }
 }
