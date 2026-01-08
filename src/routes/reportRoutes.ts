@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { 
-    reportTable_Repair, reportTable_Request, repairSummary, requestSummary, deviceCategoryChart, requestMetric, repairMetric
+    reportTable_Repair, reportTable_Request, repairSummary, requestSummary, deviceCategoryChart, requestMetric, repairMetric,
+    departmentRequest, monthlyRepairs, monthlyRequests
 } from "../controllers/reportController";
 
 const router = Router();
@@ -12,5 +13,8 @@ router.get('/requestsummary', requestSummary);
 router.get('/devicecategorychart', deviceCategoryChart);
 router.get('/requestmetric', requestMetric);
 router.get('/repairmetric', repairMetric);
+router.get('/departmentrequest', departmentRequest);
+router.get('/monthlyrepairs', monthlyRepairs);
+router.get('/monthlyrequests', monthlyRequests);
 
 export default router;
