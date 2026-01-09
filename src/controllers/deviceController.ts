@@ -123,8 +123,14 @@ export const deleteDevice = async (req: Request, res: Response) => {
 
   try {
     const request = new sql.Request();
-    request.input("DeviceCatId", DeviceCatId);
-    const result = await request.query(`
+    const deleteDevices = await request.input('Category', DeviceCatId).query(`
+        DELETE FROM device
+        WHERE Category = @Category;
+      `)
+    if (deleteDevices.rowsAffected[0]===0){
+      return res.status(404).json({ message:"Failed to delete devices of this category" })
+    }
+    const result = await request.input("DeviceCatId", DeviceCatId).query(`
                 DELETE FROM devicecat
                 WHERE DeviceCatId = @DeviceCatId;  
             `);

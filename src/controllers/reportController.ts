@@ -98,7 +98,7 @@ export const repairSummary = async (req: Request, res: Response) => {
       totalrepairs: row.totalrepairs,
       repairtime: row.repairtime.toFixed(2),
       completed: row.completed,
-      percentchange: percentChange.toFixed(2) + "%",
+      percentchange: percentChange.toFixed(2),
     };
 
     res.status(200).json(stats);
@@ -133,7 +133,7 @@ export const requestSummary = async (req: Request, res: Response) => {
     }
     const stats = {
       totalrequests: row.totalrequests,
-      percentchange: percentChange,
+      percentchange: percentChange.toFixed(2),
     };
 
     res.status(200).json(stats);

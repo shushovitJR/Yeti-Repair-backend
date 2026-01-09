@@ -9,6 +9,7 @@ import deviceRoutes from './routes/deviceRoutes';
 import repairStatusRoutes from './routes/repairStatusRoutes';
 import requestStatusRoutes from './routes/requestStatusRoutes';
 import reportRoutes from './routes/reportRoutes';
+import departmentRoutes from './routes/departmentRoutes';
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/repair", repairRoutes)
 app.use("/api/request", requestRoutes)
 app.use("/api/vendor", vendorRoutes)
 app.use("/api/device", deviceRoutes)
+app.use("/api/department", departmentRoutes)
 app.use('/api/repairStatus', repairStatusRoutes)
 app.use('/api/requestStatus', requestStatusRoutes)
 app.use('/api/report', reportRoutes)
