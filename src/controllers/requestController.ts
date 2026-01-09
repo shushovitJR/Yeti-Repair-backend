@@ -4,6 +4,8 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 
 export const createRequest = async (req: AuthRequest, res: Response)=>{
     const { 
+        RequesterName,
+        DepartmentName,
         DeviceName,
         Category,
         Reason,
@@ -11,7 +13,7 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
      } = req.body
      const UserName = req.user?.UserId;
 
-     if (!DeviceName || !Category || !Reason){
+     if (!DeviceName || !Category || !Reason || !RequesterName || !DepartmentName){
         return res.status(400).json({ message:"Fill all the fields" });
      }
      if (!UserName){
@@ -28,6 +30,15 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
                 return res.status(400).json({ message:"Status Not Found" })
             }
             const StatusId = checkStatus.recordset[0].RequestStatusId;
+
+        const checkDepartment = await request.input('DepartmentName', DepartmentName).query(`
+                SELECT DepartmentId FROM department
+                WHERE DepartmentName = @DepartmentName;
+            `)
+            if (checkDepartment.recordset.length === 0){
+                return res.status(400).json({ message:"Department Not Found" })
+            }
+            const DepartmentId = checkDepartment.recordset[0].DepartmentId;
 
         const checkDeviceCat = await request.input('DeviceCatName', Category)
             .query(`
@@ -52,13 +63,15 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
             const DeviceId = createDevice.recordset[0].DeviceId;
 
         const result = await request
+            .input('RequesterName', RequesterName)
             .input('DeviceId', DeviceId)
             .input('Reason', Reason)
             .input('StatusId', StatusId)
             .input('UserId', UserName)
+            .input('DepartmentId', DepartmentId)
             .query(`
-                    INSERT INTO request (Reason, DeviceId, StatusId, UserId)
-                    VALUES (@Reason, @DeviceId, @StatusId, @UserId)
+                    INSERT INTO request (RequesterName, Reason, DeviceId, StatusId, UserId, DepartmentId)
+                    VALUES (@RequesterName, @Reason, @DeviceId, @StatusId, @UserId, @DepartmentId)
                     
                     SELECT SCOPE_IDENTITY() AS RequestId;
                 `)
@@ -87,14 +100,13 @@ export const getRequest = async (req: Request, res: Response)=>{
                 s.Color,
                 d.DeviceName,
                 dc.DeviceCatName,
-                u.EmployeeName,
+                r.RequesterName AS EmployeeName,
                 de.DepartmentName
                 FROM request r
                 LEFT JOIN requeststatus s ON r.StatusId = s.RequestStatusId
                 LEFT JOIN device d ON r.DeviceId = d.DeviceId
                 LEFT JOIN devicecat dc ON d.Category = dc.DeviceCatId
-                LEFT JOIN users u ON r.UserId = u.UserId
-                LEFT JOIN department de ON u.DepartmentId = de.DepartmentId
+                LEFT JOIN department de ON r.DepartmentId = de.DepartmentId
                 ORDER BY 
                     r.RequestId DESC;
             `);
@@ -118,61 +130,6 @@ export const getRequest = async (req: Request, res: Response)=>{
     }
 };
 
-// export const getRequestById = async (req: Request, res: Response)=>{
-//     const { id } = req.params;
-
-//     const RequestId = Number(id);
-//     if (isNaN(RequestId) || RequestId<=0){
-//         return res.status(400).json({message: 'Invalid request ID'});
-//     }
-
-//     try {
-//         const request = new sql.Request();
-
-//         const result = await request
-//             .input('RequestId', RequestId)
-//             .query(`
-//                 SELECT
-//                 r.RequestId,
-//                 u.EmployeeName AS RequestedBy,
-//                 d.DeviceCategory,
-//                 d.DeviceName,
-//                 r.Reason,
-//                 r.RequestStatus AS Status,
-//                 e.DepartmentName AS Department,
-//                 r.RequestDate
-
-//                 FROM request r
-//                 INNER JOIN device d ON r.DeviceId = d.DeviceId
-//                 INNER JOIN users u ON r.RequestedBy = u.UserId
-//                 INNER JOIN department e ON u.DepartmentId = e.DepartmentId
-                
-//                 WHERE r.RequestId = @RequestId;
-//                 `);
-//                 if (result.recordset.length === 0){
-//                     return res.status(404).json({message: "Request not found"});
-//                 }
-
-//                 const row = result.recordset[0];
-
-//                 const formattedRepair = {
-//                     RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
-//                     DeviceName: row.DeviceName,
-//                     category: row.DeviceCategory,
-//                     RequestedBy: row.RequestedBy,
-//                     Reason: row.Reason,
-//                     Status: row.Status,
-//                     Department: row.Department,
-//                     RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
-//                 };
-//                 res.status(200).json(formattedRepair);
-
-//     } catch (error: any){
-//         console.error('Error fetching request by ID from db:', error);
-//         res.status(500).json({message: 'Failed to fetch request by id from db'});
-//     }
-// }; 
-
 export const updateRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
   const RequestId = Number(id);
@@ -182,13 +139,15 @@ export const updateRequest = async (req: Request, res: Response) => {
   }
 
   const {
+    RequesterName,
+    DepartmentName,
     Reason,
     RequestDate,
     RecieveDate,
     Status,
   } = req.body;
 
-    if (!Reason && ! RequestDate && !RecieveDate && !Status){
+    if (!Reason && ! RequestDate && !RecieveDate && !Status && !RequesterName && !DepartmentName){
       return res.status(400).json({ message:"No fields provided to edit" });
     }
     if (Reason !== undefined && (typeof Reason !== 'string' || Reason.trim() === '' )){
@@ -202,6 +161,12 @@ export const updateRequest = async (req: Request, res: Response) => {
     }
     if (Status !== undefined && (typeof Status !== 'string' || Status.trim() === '' )){
         return res.status(400).json({ message:"Status is of invalid type" });
+    }
+    if (RequesterName !== undefined && (typeof RequesterName !== 'string' || RequesterName.trim() === '' )){
+        return res.status(400).json({ message:"Name is of invalid type" });
+    }
+    if (DepartmentName !== undefined && (typeof DepartmentName !== 'string' || DepartmentName.trim() === '' )){
+        return res.status(400).json({ message:"Department is of invalid type" });
     }
 
     try{
@@ -218,6 +183,15 @@ export const updateRequest = async (req: Request, res: Response) => {
             }
             const StatusId = checkStatus.recordset[0].RequestStatusId;
 
+        const checkDepartment = await request.input('DepartmentName', DepartmentName).query(`
+                SELECT DepartmentId FROM department
+                WHERE DepartmentName = @DepartmentName;
+            `)
+        if (checkDepartment.recordset.length === 0){
+            return res.status(400).json({ message:"Department name not found" })
+        }
+            const DepartmentId = checkDepartment.recordset[0].DepartmentId;
+
             if (Reason !== undefined){
                 updates.push('Reason = @Reason')
                 request.input('Reason', Reason)
@@ -233,6 +207,14 @@ export const updateRequest = async (req: Request, res: Response) => {
             if (StatusId !== undefined){
                 updates.push('StatusId = @StatusId')
                 request.input('StatusId', StatusId)
+            }
+            if (RequesterName !== undefined){
+                updates.push('RequesterName = @RequesterName')
+                request.input('RequesterName', RequesterName)
+            }
+            if (DepartmentId !== undefined){
+                updates.push('DepartmentId = @DepartmentId')
+                request.input('DepartmentId', DepartmentId)
             }
 
             const result = await request.input('RequestId',RequestId).query(`
