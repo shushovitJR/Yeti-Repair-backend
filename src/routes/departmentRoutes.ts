@@ -5,8 +5,8 @@ import { authenticate, authorize } from "../middlewares/authMiddleware";
 const router = Router();
 
 router.post('/', authenticate, addDepartment);
-router.get('/', getDepartments);
-router.delete('/:id', authenticate, deleteDepartment);
-router.put('/:id', authenticate,  updateDepartment);
+router.get('/', authenticate, getDepartments);
+router.delete('/:id', authenticate, authorize(['admin']),deleteDepartment);
+router.put('/:id', authenticate, updateDepartment);
 
 export default router;

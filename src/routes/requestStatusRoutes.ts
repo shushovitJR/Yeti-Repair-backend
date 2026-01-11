@@ -5,8 +5,8 @@ import { authenticate, authorize } from '../middlewares/authMiddleware';
 const router = Router();
 
 router.post('/', authenticate, createStatus);
-router.get('/', getStatuses);
+router.get('/', authenticate, getStatuses);
 router.put('/:id', authenticate, updateStatus);
-router.delete('/:id', authenticate, deleteStatus);
+router.delete('/:id', authenticate, authorize(['admin']),deleteStatus);
 
 export default router;
