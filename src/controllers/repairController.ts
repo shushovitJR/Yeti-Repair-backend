@@ -132,6 +132,7 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
                 DeviceName: row.DeviceName,
                 Category: row.Category,
                 Vendor: row.VendorName,
+                DepartmentName: row.DepartmentName,
               }))
 
 

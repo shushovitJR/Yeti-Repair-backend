@@ -121,6 +121,7 @@ export const getRequest = async (req: Request, res: Response)=>{
             RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
             RecieveDate: row.RecieveDate ? row.RecieveDate.toISOString().split('T')[0] : null,
             Status: row.RequestStatusName,
+            Cost: row.Cost,
             Color: row.Color,
             DeviceName: row.DeviceName,
             Category: row.DeviceCatName,
