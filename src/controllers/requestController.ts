@@ -9,12 +9,14 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
         DeviceName,
         Category,
         Reason,
+        RequestDate,
+        Cost,
         Status = 'Pending'
      } = req.body
      const UserName = req.user?.UserId;
 
-     if (!DeviceName || !Category || !Reason || !RequesterName || !DepartmentName){
-        return res.status(400).json({ message:"Fill all the fields" });
+     if (!DeviceName || !Category || !Reason || !RequesterName || !DepartmentName || !RequestDate){
+        return res.status(400).json({ message:"Fill the following fields: Device name and category, Reason, Name of person and department and request date" });
      }
      if (!UserName){
         return res.status(400).json({ message:"Cannot find user" })
@@ -67,11 +69,13 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
             .input('DeviceId', DeviceId)
             .input('Reason', Reason)
             .input('StatusId', StatusId)
+            .input('Cost', Cost)
             .input('UserId', UserName)
+            .input('RequestDate', RequestDate)
             .input('DepartmentId', DepartmentId)
             .query(`
-                    INSERT INTO request (RequesterName, Reason, DeviceId, StatusId, UserId, DepartmentId)
-                    VALUES (@RequesterName, @Reason, @DeviceId, @StatusId, @UserId, @DepartmentId)
+                    INSERT INTO request (RequesterName, Reason, DeviceId, StatusId, UserId, DepartmentId, RequestDate, Cost)
+                    VALUES (@RequesterName, @Reason, @DeviceId, @StatusId, @UserId, @DepartmentId, @RequestDate, @Cost)
                     
                     SELECT SCOPE_IDENTITY() AS RequestId;
                 `)
@@ -96,6 +100,7 @@ export const getRequest = async (req: Request, res: Response)=>{
                 r.Reason,
                 r.RequestDate,
                 r.RecieveDate,
+                r.Cost,
                 s.RequestStatusName,
                 s.Color,
                 d.DeviceName,
@@ -142,12 +147,13 @@ export const updateRequest = async (req: Request, res: Response) => {
     RequesterName,
     DepartmentName,
     Reason,
+    Cost,
     RequestDate,
     RecieveDate,
     Status,
   } = req.body;
 
-    if (!Reason && ! RequestDate && !RecieveDate && !Status && !RequesterName && !DepartmentName){
+    if (!Reason && ! RequestDate && !RecieveDate && !Status && !RequesterName && !DepartmentName && !Cost){
       return res.status(400).json({ message:"No fields provided to edit" });
     }
     if (Reason !== undefined && (typeof Reason !== 'string' || Reason.trim() === '' )){
@@ -215,6 +221,10 @@ export const updateRequest = async (req: Request, res: Response) => {
             if (DepartmentId !== undefined){
                 updates.push('DepartmentId = @DepartmentId')
                 request.input('DepartmentId', DepartmentId)
+            }
+            if (Cost !== undefined){
+                updates.push('Cost = @Cost')
+                request.input('Cost', Cost)
             }
 
             const result = await request.input('RequestId',RequestId).query(`

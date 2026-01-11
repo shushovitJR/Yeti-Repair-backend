@@ -9,13 +9,12 @@ export const createRepairRequest = async (req: Request, res: Response) => {
     VendorName,
     Cost,
     DeviceName,
+    DepartmentName,
     Category,
     Status = 'Pending',
   } = req.body;
   
-  // console.log('Create repair request body:', req.body);
-
-  if (!IssueDescription || !VendorName || !DeviceName || !Category){
+  if (!IssueDescription || !VendorName || !DeviceName || !Category || !DepartmentName){
     return res.status(400).json({ message:"Missing required fields" });
   }
 
@@ -30,6 +29,16 @@ export const createRepairRequest = async (req: Request, res: Response) => {
       }
 
       const VendorId = vendorCheck.recordset[0].VendorId;
+
+    const departmentCheck = await request.input('DepartmentName', DepartmentName).query(`
+        SELECT DepartmentId FROM department
+        WHERE DepartmentName = @DepartmentName;
+      `)
+      if (departmentCheck.recordset.length === 0){
+        return res.status(400).json({ message:"Department Doen't Exist" })
+      }
+
+      const DepartmentId = departmentCheck.recordset[0].DepartmentId;
 
     const categoryCheck = await request.input('DeviceCatName', Category).query(`
         SELECT DeviceCatId from devicecat
@@ -66,9 +75,10 @@ export const createRepairRequest = async (req: Request, res: Response) => {
           .input('StatusId', StatusId)
           .input('VendorId', VendorId)
           .input('DeviceId', DeviceId)
+          .input('DepartmentId', DepartmentId)
           .query(`
-              INSERT INTO repair (IssueDescription, IssueDate, ReturnDate, Cost, VendorId, DeviceId, StatusId)
-              VALUES (@IssueDescription, @IssueDate, @ReturnDate, @Cost, @VendorId, @DeviceId, @StatusId)
+              INSERT INTO repair (IssueDescription, IssueDate, ReturnDate, Cost, VendorId, DeviceId, StatusId, DepartmentId)
+              VALUES (@IssueDescription, @IssueDate, @ReturnDate, @Cost, @VendorId, @DeviceId, @StatusId, @DepartmentId)
 
               SELECT SCOPE_IDENTITY() AS RepairId;
             `)
@@ -99,12 +109,14 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
                   s.Color,
                   d.DeviceName,
                   dc.DeviceCatName AS Category,
-                  v.VendorName
+                  v.VendorName,
+                  dep.DepartmentName
               FROM repair r
                   LEFT JOIN repairstatus s ON r.StatusId = s.RepairStatusId
                   LEFT JOIN device d ON r.DeviceId = d.DeviceId
                   LEFT JOIN devicecat dc ON d.Category = dc.DeviceCatId
                   LEFT JOIN vendor v ON r.VendorId = v.VendorId
+                  LEFT JOIN department dep ON r.DepartmentId = dep.DepartmentId
               ORDER BY 
                   r.RepairId DESC;   
               `);
@@ -130,62 +142,6 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
       }
 };
 
-// export const getRepairRequestById = async (req: Request, res: Response)=>{
-//   const { id } = req.params;
-
-//   const RepairId = Number(id);
-//   if (isNaN(RepairId) || RepairId<=0){
-//     return res.status(400).json({message: 'Invalid repair ID'});
-//   }
-
-//   try {
-//     const request = new sql.Request();
-
-//     const result = await request
-//       .input('RepairId', RepairId)
-//       .query(`
-//           SELECT
-//           r.RepairId,
-//           r.IssueDescription AS Issue,
-//           r.IssueDate,
-//           r.ReturnDate,
-//           s.RepairStatusName AS Status,
-//           r.Cost,
-//           dc.DeviceCatName AS Category,
-//           d.DeviceName,
-//           v.VendorName AS Vendor
-//         FROM repair r
-//         INNER JOIN device d ON r.DeviceId = d.DeviceId
-//         INNER JOIN devicecat dc ON d.DeviceId = dc.DeviceCatId
-//         INNER JOIN vendor v ON r.VendorId = v.VendorId
-//         INNER JOIN repairstatus s ON r.StatusId = s.RepairStatusId
-//           WHERE r.RepairId = @RepairId;
-//         `);
-//         if (result.recordset.length === 0){
-//           return res.status(404).json({message: "Repair request not found"});
-//         }
-
-//         const repair = result.recordset[0];
-
-//         const formattedRepair = {
-//       repairId: `REP${String(repair.RepairId).padStart(3, '0')}`,
-//       category: repair.Category,
-//       name: repair.DeviceName,
-//       issue: repair.Issue,
-//       cost: repair.Cost,
-//       issueDate: repair.IssueDate ? repair.IssueDate.toISOString().split('T')[0] : null,
-//       returnedDate: repair.ReturnDate ? repair.ReturnDate.toISOString().split('T')[0] : null,
-//       status: repair.Status,
-//       vendor: repair.Vendor,
-//     };
-
-//     res.status(200).json(formattedRepair);
-//   } catch (error: any){
-//     console.log('Error fetching repair request:', error);
-//     res.status(500).json({message: 'Failed to fetch repair request'});
-//   }
-// };
-
 export const updateRepairRequest = async (req: Request, res: Response) => {
   const { id } = req.params;
   const RepairId = Number(id);
@@ -201,9 +157,10 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
     VendorName,
     Status,
     Cost,
+    DepartmentName
   } = req.body;
 
-    if (!IssueDescription && ! IssueDate && !ReturnDate && !VendorName && !Status && !Cost){
+    if (!IssueDescription && ! IssueDate && !ReturnDate && !VendorName && !Status && !Cost && !DepartmentName){
       return res.status(400).json({ message:"No fields provided to edit" });
     }
 
@@ -221,6 +178,9 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
     }
     if (Status !== undefined && (typeof Status !== 'string' || Status.trim() === '' )){
         return res.status(400).json({ message:"Status is of invalid type" });
+    }
+    if (DepartmentName !== undefined && (typeof DepartmentName !== 'string' || DepartmentName.trim() === '' )){
+        return res.status(400).json({ message:"Department name is of invalid type" });
     }
    
 
@@ -248,6 +208,16 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
           }
           
           const VendorId = checkVendor.recordset[0].VendorId;
+
+          const checkDepartment = await request.input('DepartmentName', DepartmentName).query(`
+            SELECT DepartmentId FROM department
+            WHERE DepartmentName = @DepartmentName;
+          `)
+          if (checkDepartment.recordset.length === 0){
+            return res.status(400).json({ message:"Department name not specified or doesn't exist" });
+          }
+          
+          const DepartmentId = checkDepartment.recordset[0].DepartmentId;
          
     if (IssueDescription !== undefined){
       updates.push('IssueDescription = @IssueDescription')
@@ -272,6 +242,10 @@ export const updateRepairRequest = async (req: Request, res: Response) => {
     if (Cost !== undefined){
       updates.push('Cost = @Cost')
       request.input('Cost', Cost)
+    }
+    if (DepartmentId !== undefined){
+      updates.push('DepartmentId = @DepartmentId')
+      request.input('DepartmentId', DepartmentId)
     }
 
     const result = await request.input("RepairId", RepairId).query(`

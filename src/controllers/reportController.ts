@@ -215,8 +215,7 @@ export const departmentRequest = async (req: Request, res: Response) => {
                 d.DepartmentName AS department,
                 COUNT(d.DepartmentName) AS count
                 FROM request r
-                JOIN users u ON r.UserId = u.UserId
-                JOIN department d ON u.DepartmentId = d.DepartmentId
+                JOIN department d ON  r.DepartmentId = d.DepartmentId 
                 GROUP BY d.DepartmentName;
             `);
     const counts = result.recordset.map((row) => ({
