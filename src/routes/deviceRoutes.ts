@@ -4,9 +4,9 @@ import {authenticate,authorize} from '../middlewares/authMiddleware';
 
 const router = Router();
 
-router.post('/', authenticate, authorize(['admin']), createDevice);
+router.post('/', authenticate, createDevice);
 router.get('/', getDevices);
-router.put('/:id',authenticate, authorize(['admin']), updateDevice);
-router.delete('/:id',authenticate,authorize(['admin']), deleteDevice);
+router.put('/:id',authenticate, updateDevice);
+router.delete('/:id',authenticate, deleteDevice);
 
 export default router;

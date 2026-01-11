@@ -171,13 +171,14 @@ export const requestMetric = async (req: Request, res: Response) => {
     const request = new sql.Request();
     const result = await request.query(`
                 SELECT
-                SUM(CASE WHEN s.RequestStatusName = 'Recieved' THEN 1 ELSE 0 END) AS recieved,
+                SUM(CASE WHEN MONTH(r.RequestDate)=MONTH(GETDATE())
+                  AND YEAR(r.RequestDate)=YEAR(GETDATE()) THEN r.cost ELSE 0 END ) AS cost,
                 SUM(CASE WHEN s.RequestStatusName NOT IN ('Recieved', 'Cancelled') THEN 1 ELSE 0 END) AS pending
                 FROM request r
                 JOIN requeststatus s ON r.StatusId = s.RequestStatusId;
             `);
     const requests = result.recordset.map((row) => ({
-      recieved: row.recieved,
+      cost: row.cost,
       pending: row.pending,
     }));
 
