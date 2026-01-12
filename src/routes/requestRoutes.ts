@@ -7,6 +7,6 @@ const router = Router();
 router.post('/', authenticate,createRequest);
 router.get('/', getRequest);
 router.put('/:id', authenticate, updateRequest);
-router.delete('/:id', authenticate, deleteRequest);
+router.delete('/:id', authenticate, authorize(['admin']), deleteRequest);
 
 export default router;
