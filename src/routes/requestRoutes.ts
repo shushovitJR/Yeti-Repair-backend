@@ -6,7 +6,7 @@ const router = Router();
 
 router.post('/', authenticate,createRequest);
 router.get('/', getRequest);
-router.put('/:id', authenticate, updateRequest);
+router.put('/:id', authenticate, authorize(['admin']),updateRequest);
 router.delete('/:id', authenticate, authorize(['admin']), deleteRequest);
 
-export default router;
+export default router

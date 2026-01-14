@@ -7,6 +7,6 @@ const router = Router();
 router.post('/', authenticate, addDepartment);
 router.get('/', authenticate, getDepartments);
 router.delete('/:id', authenticate, authorize(['admin']),deleteDepartment);
-router.put('/:id', authenticate, updateDepartment);
+router.put('/:id', authenticate, authorize(['admin']),updateDepartment);
 
 export default router;

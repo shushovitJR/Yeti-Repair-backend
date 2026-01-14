@@ -6,7 +6,7 @@ import { authenticate, authorize } from "../middlewares/authMiddleware";
 const router = Router();
 
 router.post('/', authenticate, authorize(['admin']),addVendor);
-router.get('/', authenticate, authorize(['admin']),getVendors);
+router.get('/', authenticate, getVendors);
 router.delete('/:id', authenticate, authorize(['admin']),deleteVendor);
 router.put('/:id', authenticate, authorize(['admin']),updateVendor);
 
