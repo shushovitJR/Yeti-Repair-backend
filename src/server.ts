@@ -1,10 +1,10 @@
 import app from './index'
 import { connectDB } from './config/db'
 
-const PORT = 5000;
+const API_URL = process.env.REACT_APP_API_URL
 
 connectDB();
 
-app.listen(PORT, ()=>{
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(5000, "0.0.0.0" , ()=>{
+  console.log(`Server is running on ${API_URL}`);
 })

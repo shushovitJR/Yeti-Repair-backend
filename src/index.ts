@@ -14,7 +14,12 @@ import departmentRoutes from './routes/departmentRoutes';
 dotenv.config();
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "http://192.168.50.45:3000"
+  ]
+}));
 app.use(express.json());
 
 app.get("/",(req,res)=>{
