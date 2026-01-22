@@ -16,6 +16,10 @@ export const login = async (req: Request, res: Response) => {
 
     const user = result.recordset[0];
 
+    if (user.Username !== username){
+      return res.status(401).json({ message:"Username or Password is incorrect" })
+    }
+
     // Compare password
     let isMatch = false;
     if (user.Password.startsWith("$2b$")) {
