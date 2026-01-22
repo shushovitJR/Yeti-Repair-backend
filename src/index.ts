@@ -17,7 +17,7 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "http://192.168.50.45:3000"
+    `${process.env.REACT_APP_API_URL}:3000`
   ]
 }));
 app.use(express.json());
