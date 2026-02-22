@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import sql from '../config/db';
+import db from '../config/db';
 
 export const createStatus = async (req: Request, res: Response)=>{
     const{
@@ -23,21 +23,18 @@ export const createStatus = async (req: Request, res: Response)=>{
     } 
 
     try{
-        const request = new sql.Request();
-        const result = await request
-        .input('RequestStatusName', statusName)
-        .input('StatusDescription', statusDescription)
-        .input('Color', statusColor)
-        .query(`
+        const result = await db.query(
+            `
                 INSERT INTO requeststatus (RequestStatusName, StatusDescription, Color)
-                VALUES (@RequestStatusName, @StatusDescription, @Color)
-
-                SELECT SCOPE_IDENTITY() AS RequestStatusId;
-            `);
-        if (result.rowsAffected[0]===0){
+                VALUES ($1, $2, $3)
+                RETURNING RequestStatusId AS "RequestStatusId";
+            `,
+            [statusName, statusDescription, statusColor]
+        );
+        if (result.rowCount===0){
             return res.status(404).json({ message:"Request status not found" });
         }
-        const statusId = result.recordset[0]?.RequestStatusId;
+        const statusId = result.rows[0]?.RequestStatusId;
 
         res.status(200).json({ 
             message: "Successfully created status",
@@ -51,13 +48,16 @@ export const createStatus = async (req: Request, res: Response)=>{
 
 export const getStatuses = async (req: Request, res: Response)=>{
     try{
-        const request = new sql.Request();
-        const result = await request.query(`
-                SELECT RequestStatusId, RequestStatusName, StatusDescription, Color
+        const result = await db.query(`
+                SELECT
+                    RequestStatusId AS "RequestStatusId",
+                    RequestStatusName AS "RequestStatusName",
+                    StatusDescription AS "StatusDescription",
+                    Color AS "Color"
                 FROM requeststatus
             `);
 
-        const statuses = result.recordset.map((row: any)=>({
+        const statuses = result.rows.map((row: any)=>({
             RequestStatusId: row.RequestStatusId,
             RequestStatusName: row.RequestStatusName,
             StatusDescription: row.StatusDescription,
@@ -98,27 +98,29 @@ export const updateStatus = async (req: Request, res: Response)=>{
     } 
 
     try{
-        const request = new sql.Request();
         const updates: string[] = [];
+        const values: any[] = [];
+        let index = 1;
         if (statusName!== undefined){
-            updates.push('RequestStatusName = @RequestStatusName');
-            request.input('RequestStatusName', statusName);
+            updates.push(`RequestStatusName = $${index++}`);
+            values.push(statusName);
         }
         if (statusDescription!== undefined){
-            updates.push('StatusDescription = @StatusDescription');
-            request.input('StatusDescription', statusDescription);
+            updates.push(`StatusDescription = $${index++}`);
+            values.push(statusDescription);
         }
         if (statusColor!== undefined){
-            updates.push('Color = @Color');
-            request.input('Color', statusColor);
+            updates.push(`Color = $${index++}`);
+            values.push(statusColor);
         }
 
-        const result = await request.input('RequestStatusId', statusId).query(`
+        values.push(statusId);
+        const result = await db.query(`
                 UPDATE requeststatus 
                 SET ${updates.join(', ')}
-                WHERE RequestStatusId = @RequestStatusId
-            `);
-        if (result.rowsAffected[0]===0){
+                WHERE RequestStatusId = $${index}
+            `, values);
+        if (result.rowCount===0){
             return res.status(404).json({ message:"Could not find the request status" });
         }
 
@@ -140,13 +142,11 @@ export const deleteStatus = async (req: Request, res: Response)=>{
         return res.status(400).json({ message:'Invalid Id' });
     }
     try{
-        const request = new sql.Request();
-        const result = await request.input('RequestStatusId', statusId)
-            .query(`
+        const result = await db.query(`
                     DELETE FROM requeststatus
-                    WHERE RequestStatusId = @RequestStatusId; 
-                `);
-        if (result.rowsAffected[0]===0){
+                    WHERE RequestStatusId = $1; 
+                `, [statusId]);
+        if (result.rowCount===0){
             return res.status(404).json({ message:"Could not find request id" });
         }
 

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import sql from "../config/db";
+import db from "../config/db";
 
 export const addVendor = async (req: Request, res: Response) => {
   const { VendorName } = req.body;
@@ -9,15 +9,16 @@ export const addVendor = async (req: Request, res: Response) => {
     });
   }
   try {
-    const vendorAdd = new sql.Request();
-    const result = await vendorAdd.input("VendorName", VendorName).query(`
-                INSERT INTO vendor (VendorName)
-                VALUES (@VendorName);
+    const result = await db.query(
+      `
+        INSERT INTO vendor (VendorName)
+        VALUES ($1)
+        RETURNING VendorId AS "VendorId";
+      `,
+      [VendorName]
+    );
 
-                SELECT SCOPE_IDENTITY() AS VendorId;
-                `);
-
-    const newVendorId = result.recordset[0]?.VendorId;
+    const newVendorId = result.rows[0]?.VendorId;
 
     res.status(201).json({
       message: "Request Created Successfully",
@@ -33,13 +34,14 @@ export const addVendor = async (req: Request, res: Response) => {
 
 export const getVendors = async (req: Request, res: Response) => {
   try {
-    const getVendor = new sql.Request();
+    const result = await db.query(`
+      SELECT
+        VendorId AS "VendorId",
+        VendorName AS "VendorName"
+      FROM vendor;
+    `);
 
-    const result = await getVendor.query(`
-                SELECT VendorId, VendorName FROM vendor;
-            `);
-
-    const vendors = result.recordset.map((row: any) => ({
+    const vendors = result.rows.map((row: any) => ({
       VendorId: row.VendorId,
       VendorName: row.VendorName,
     }));
@@ -62,15 +64,12 @@ export const deleteVendor = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
-
     const deleteQuery = `
         DELETE FROM vendor
-        WHERE VendorId = @VendorId`;
-    request.input("VendorId", VendorId);
-    const deleteResult = await request.query(deleteQuery);
+        WHERE VendorId = $1`;
+    const deleteResult = await db.query(deleteQuery, [VendorId]);
 
-    if (deleteResult.rowsAffected[0] === 0) {
+    if (deleteResult.rowCount === 0) {
       return res.status(404).json({ message: "Vendor not found" });
     }
 
@@ -101,28 +100,23 @@ export const updateVendor = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
-
     let updateQuery = "UPDATE vendor SET ";
     const updates: string[] = [];
-    const params: Record<string, any> = {};
+    const values: any[] = [];
+    let index = 1;
 
     if (vendorName !== undefined) {
-      updates.push("VendorName=@VendorName");
-      params.VendorName = vendorName; 
+      updates.push(`VendorName=$${index++}`);
+      values.push(vendorName);
     }
 
-    updateQuery += updates.join(', ');
-    updateQuery += " WHERE VendorId = @VendorId";
-    request.input("VendorId", vendorId);
+    updateQuery += updates.join(", ");
+    updateQuery += ` WHERE VendorId = $${index}`;
+    values.push(vendorId);
 
-    Object.keys(params).forEach((key) => {
-      request.input(key, params[key]);
-    });
+    const result = await db.query(updateQuery, values);
 
-    const result = await request.query(updateQuery);
-
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Vendor not found" });
     }
 

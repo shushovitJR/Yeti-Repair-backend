@@ -1,6 +1,13 @@
 import {Request, Response} from 'express';
-import sql from '../config/db';
+import db from '../config/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
+
+const formatDate = (value: any) => {
+    if (!value) return null;
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    if (typeof value === 'string') return value.split('T')[0];
+    return null;
+};
 
 export const createRequest = async (req: AuthRequest, res: Response)=>{
     const { 
@@ -22,64 +29,59 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
         return res.status(400).json({ message:"Cannot find user" })
      }
      try{
-        const request = new sql.Request();
-        const checkStatus = await request.input('RequestStatusName', Status)
-            .query(`
+        const checkStatus = await db.query(
+            `
                     SELECT RequestStatusId FROM requeststatus
-                    WHERE RequestStatusName = @RequestStatusName;
-                `);
-            if (checkStatus.recordset.length === 0){
+                    WHERE RequestStatusName = $1;
+                `,
+            [Status]
+        );
+            if (checkStatus.rows.length === 0){
                 return res.status(400).json({ message:"Status Not Found" })
             }
-            const StatusId = checkStatus.recordset[0].RequestStatusId;
+            const StatusId = checkStatus.rows[0].requeststatusid;
 
-        const checkDepartment = await request.input('DepartmentName', DepartmentName).query(`
+        const checkDepartment = await db.query(`
                 SELECT DepartmentId FROM department
-                WHERE DepartmentName = @DepartmentName;
-            `)
-            if (checkDepartment.recordset.length === 0){
+                WHERE DepartmentName = $1;
+            `, [DepartmentName])
+            if (checkDepartment.rows.length === 0){
                 return res.status(400).json({ message:"Department Not Found" })
             }
-            const DepartmentId = checkDepartment.recordset[0].DepartmentId;
+            const DepartmentId = checkDepartment.rows[0].departmentid;
 
-        const checkDeviceCat = await request.input('DeviceCatName', Category)
-            .query(`
+        const checkDeviceCat = await db.query(
+            `
                     SELECT DeviceCatId from devicecat
-                    WHERE DeviceCatName = @DeviceCatName
-                `);
+                    WHERE DeviceCatName = $1
+                `,
+            [Category]
+        );
 
-            if (checkDeviceCat.recordset.length === 0){
+            if (checkDeviceCat.rows.length === 0){
                 return res.status(400).json({ message:"Device Category not found" });
             }
-            const CategoryId = checkDeviceCat.recordset[0].DeviceCatId;
+            const CategoryId = checkDeviceCat.rows[0].devicecatid;
 
-        const createDevice = await request
-            .input('DeviceName', DeviceName)
-            .input('Category', CategoryId)
-            .query(`
+        const createDevice = await db.query(
+            `
                     INSERT INTO device(DeviceName, Category)
-                    VALUES (@DeviceName, @Category);
+                    VALUES ($1, $2)
+                    RETURNING DeviceId AS "DeviceId";
+                `,
+            [DeviceName, CategoryId]
+        );
+            const DeviceId = createDevice.rows[0].DeviceId;
 
-                    SELECT SCOPE_IDENTITY() AS DeviceId
-                `);
-            const DeviceId = createDevice.recordset[0].DeviceId;
-
-        const result = await request
-            .input('RequesterName', RequesterName)
-            .input('DeviceId', DeviceId)
-            .input('Reason', Reason)
-            .input('StatusId', StatusId)
-            .input('Cost', Cost)
-            .input('UserId', UserName)
-            .input('RequestDate', RequestDate)
-            .input('DepartmentId', DepartmentId)
-            .query(`
+        const result = await db.query(
+            `
                     INSERT INTO request (RequesterName, Reason, DeviceId, StatusId, UserId, DepartmentId, RequestDate, Cost)
-                    VALUES (@RequesterName, @Reason, @DeviceId, @StatusId, @UserId, @DepartmentId, @RequestDate, @Cost)
-                    
-                    SELECT SCOPE_IDENTITY() AS RequestId;
-                `)
-            const RequestId = result.recordset[0].RequestId;
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    RETURNING RequestId AS "RequestId";
+                `,
+            [RequesterName, Reason, DeviceId, StatusId, UserName, DepartmentId, RequestDate, Cost]
+        )
+            const RequestId = result.rows[0].RequestId;
 
             res.status(201).json({ 
                 message:"Successfully created a request",
@@ -93,20 +95,19 @@ export const createRequest = async (req: AuthRequest, res: Response)=>{
 
 export const getRequest = async (req: Request, res: Response)=>{
     try{
-        const request = new sql.Request();
-        const result = await request.query(`
+        const result = await db.query(`
                 SELECT 
-                r.RequestId,
-                r.Reason,
-                r.RequestDate,
-                r.RecieveDate,
-                r.Cost,
-                s.RequestStatusName,
-                s.Color,
-                d.DeviceName,
-                dc.DeviceCatName,
-                r.RequesterName AS EmployeeName,
-                de.DepartmentName
+                r.RequestId AS "RequestId",
+                r.Reason AS "Reason",
+                r.RequestDate AS "RequestDate",
+                r.RecieveDate AS "RecieveDate",
+                r.Cost AS "Cost",
+                s.RequestStatusName AS "RequestStatusName",
+                s.Color AS "Color",
+                d.DeviceName AS "DeviceName",
+                dc.DeviceCatName AS "DeviceCatName",
+                r.RequesterName AS "EmployeeName",
+                de.DepartmentName AS "DepartmentName"
                 FROM request r
                 LEFT JOIN requeststatus s ON r.StatusId = s.RequestStatusId
                 LEFT JOIN device d ON r.DeviceId = d.DeviceId
@@ -115,11 +116,11 @@ export const getRequest = async (req: Request, res: Response)=>{
                 ORDER BY 
                     r.RequestId DESC;
             `);
-        const requests = result.recordset.map((row: any)=>({
+        const requests = result.rows.map((row: any)=>({
             RequestId: `REQ${String(row.RequestId).padStart(3, '0')}`,
             Reason: row.Reason,
-            RequestDate: row.RequestDate ? row.RequestDate.toISOString().split('T')[0] : null,
-            RecieveDate: row.RecieveDate ? row.RecieveDate.toISOString().split('T')[0] : null,
+            RequestDate: formatDate(row.RequestDate),
+            RecieveDate: formatDate(row.RecieveDate),
             Status: row.RequestStatusName,
             Cost: row.Cost,
             Color: row.Color,
@@ -177,64 +178,68 @@ export const updateRequest = async (req: Request, res: Response) => {
     }
 
     try{
-        const request = new sql.Request();
         const updates: string[] = [];
 
-        const checkStatus = await request.input('RequestStatusName', Status)
-            .query(`
+        const checkStatus = await db.query(
+            `
                     SELECT RequestStatusId FROM requeststatus
-                    WHERE RequestStatusName = @RequestStatusName;  
-                `)
-            if (checkStatus.recordset.length === 0){
+                    WHERE RequestStatusName = $1;  
+                `,
+            [Status]
+        )
+            if (checkStatus.rows.length === 0){
                 return res.status(400).json({ message:"Status name doesn't exist" })
             }
-            const StatusId = checkStatus.recordset[0].RequestStatusId;
+            const StatusId = checkStatus.rows[0].requeststatusid;
 
-        const checkDepartment = await request.input('DepartmentName', DepartmentName).query(`
+        const checkDepartment = await db.query(`
                 SELECT DepartmentId FROM department
-                WHERE DepartmentName = @DepartmentName;
-            `)
-        if (checkDepartment.recordset.length === 0){
+                WHERE DepartmentName = $1;
+            `, [DepartmentName])
+        if (checkDepartment.rows.length === 0){
             return res.status(400).json({ message:"Department name not found" })
         }
-            const DepartmentId = checkDepartment.recordset[0].DepartmentId;
+            const DepartmentId = checkDepartment.rows[0].departmentid;
+            const values: any[] = [];
+            let index = 1;
 
             if (Reason !== undefined){
-                updates.push('Reason = @Reason')
-                request.input('Reason', Reason)
+                updates.push(`Reason = $${index++}`)
+                values.push(Reason)
             }
             if (RequestDate !== undefined){
-                updates.push('RequestDate = @RequestDate')
-                request.input('RequestDate', RequestDate)
+                updates.push(`RequestDate = $${index++}`)
+                values.push(RequestDate)
             }
             if (RecieveDate !== undefined){
-                updates.push('RecieveDate = @RecieveDate')
-                request.input('RecieveDate', RecieveDate)
+                updates.push(`RecieveDate = $${index++}`)
+                values.push(RecieveDate)
             }
             if (StatusId !== undefined){
-                updates.push('StatusId = @StatusId')
-                request.input('StatusId', StatusId)
+                updates.push(`StatusId = $${index++}`)
+                values.push(StatusId)
             }
             if (RequesterName !== undefined){
-                updates.push('RequesterName = @RequesterName')
-                request.input('RequesterName', RequesterName)
+                updates.push(`RequesterName = $${index++}`)
+                values.push(RequesterName)
             }
             if (DepartmentId !== undefined){
-                updates.push('DepartmentId = @DepartmentId')
-                request.input('DepartmentId', DepartmentId)
+                updates.push(`DepartmentId = $${index++}`)
+                values.push(DepartmentId)
             }
             if (Cost !== undefined){
-                updates.push('Cost = @Cost')
-                request.input('Cost', Cost)
+                updates.push(`Cost = $${index++}`)
+                values.push(Cost)
             }
 
-            const result = await request.input('RequestId',RequestId).query(`
+            values.push(RequestId);
+            const result = await db.query(`
                 UPDATE request 
                 SET ${updates.join(', ')}
-                WHERE RequestId = @RequestId;
-          `)
+                WHERE RequestId = $${index};
+          `, values)
 
-          if (result.rowsAffected[0] === 0){
+          if (result.rowCount === 0){
             return res.status(404).json({ message:'Request Id not found' })
           }
 
@@ -258,13 +263,11 @@ export const deleteRequest = async (req: Request, res: Response) => {
     }
 
     try{
-        const request = new sql.Request();
-        const result = await request.input('RequestId', RequestId)
-                .query(`
+        const result = await db.query(`
                         DELETE FROM request
-                        WHERE RequestId = @RequestId;
-                    `)
-        if (result.rowsAffected[0] === 0){
+                        WHERE RequestId = $1;
+                    `, [RequestId])
+        if (result.rowCount === 0){
             return res.status(400).json({ message:"Request ID not found" })
         }
 

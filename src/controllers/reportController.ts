@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
-import sql from "../config/db";
+import db from "../config/db";
 
 export const reportTable_Repair = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT
                     dc.DeviceCatName AS category,
                     COUNT(r.RepairId) AS total,
@@ -16,12 +15,12 @@ export const reportTable_Repair = async (req: Request, res: Response) => {
                 JOIN repairstatus rs ON r.StatusId = rs.RepairStatusId
                 GROUP BY dc.DeviceCatName;
             `);
-    const repairs = result.recordset.map((row) => ({
+    const repairs = result.rows.map((row: any) => ({
       category: row.category,
-      total: row.total,
-      completed: row.completed,
-      pending: row.pending,
-      completionpercent: ((row.completed / row.total) * 100).toFixed(0) + "%",
+      total: Number(row.total),
+      completed: Number(row.completed),
+      pending: Number(row.pending),
+      completionpercent: ((Number(row.completed) / Number(row.total)) * 100).toFixed(0) + "%",
     }));
     res.status(200).json(repairs);
   } catch (error: any) {
@@ -32,8 +31,7 @@ export const reportTable_Repair = async (req: Request, res: Response) => {
 
 export const reportTable_Request = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT
                     dc.DeviceCatName AS category,
                     COUNT(rs.RequestStatusId) AS total,
@@ -45,12 +43,12 @@ export const reportTable_Request = async (req: Request, res: Response) => {
                     JOIN requeststatus rs ON r.StatusId = rs.RequestStatusId
                     GROUP BY dc.DeviceCatName;
             `);
-    const requests = result.recordset.map((row) => ({
+    const requests = result.rows.map((row: any) => ({
       catgory: row.category,
-      total: row.total,
-      completed: row.completed,
-      pending: row.pending,
-      completionpercent: ((row.completed / row.total) * 100).toFixed(0) + "%",
+      total: Number(row.total),
+      completed: Number(row.completed),
+      pending: Number(row.pending),
+      completionpercent: ((Number(row.completed) / Number(row.total)) * 100).toFixed(0) + "%",
     }));
 
     res.status(200).json(requests);
@@ -62,23 +60,22 @@ export const reportTable_Request = async (req: Request, res: Response) => {
 
 export const repairSummary = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                         SELECT
             COUNT(r.RepairId) AS totalrepairs,
-            AVG(DATEDIFF(DAY, r.IssueDate, r.ReturnDate)) AS repairtime,
+            AVG(DATE_PART('day', r.ReturnDate - r.IssueDate)) AS repairtime,
             SUM(CASE WHEN rs.RepairStatusName IN ('Recieved', 'Repaired') THEN 1 ELSE 0 END) AS completed,
 
                 SUM(CASE 
-                WHEN MONTH(r.IssueDate) = MONTH(GETDATE()) 
-                AND YEAR(r.IssueDate) = YEAR(GETDATE()) 
+                WHEN EXTRACT(MONTH FROM r.IssueDate) = EXTRACT(MONTH FROM CURRENT_DATE) 
+                AND EXTRACT(YEAR FROM r.IssueDate) = EXTRACT(YEAR FROM CURRENT_DATE) 
                 THEN 1 ELSE 0 
             END) AS this_month_repairs,
             
             -- Last month's repairs
             SUM(CASE 
-                WHEN MONTH(r.IssueDate) = MONTH(DATEADD(MONTH, -1, GETDATE())) 
-                AND YEAR(r.IssueDate) = YEAR(DATEADD(MONTH, -1, GETDATE())) 
+                WHEN EXTRACT(MONTH FROM r.IssueDate) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month') 
+                AND EXTRACT(YEAR FROM r.IssueDate) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month') 
                 THEN 1 ELSE 0 
             END) AS last_month_repairs
 
@@ -86,18 +83,18 @@ export const repairSummary = async (req: Request, res: Response) => {
             FROM repair r
             JOIN repairstatus rs ON r.StatusId = rs.RepairStatusId;
             `);
-    const row = result.recordset[0];
-    const thisMonth = row.this_month_repairs;
-    const lastMonth = row.last_month_repairs;
+    const row = result.rows[0];
+    const thisMonth = Number(row.this_month_repairs);
+    const lastMonth = Number(row.last_month_repairs);
     let percentChange = 0;
     if (lastMonth > 0) {
       percentChange = ((thisMonth - lastMonth) / lastMonth) * 100;
     }
 
     const stats = {
-      totalrepairs: row.totalrepairs,
-      repairtime: row.repairtime.toFixed(2),
-      completed: row.completed,
+      totalrepairs: Number(row.totalrepairs),
+      repairtime: Number(row.repairtime ?? 0).toFixed(2),
+      completed: Number(row.completed),
       percentchange: percentChange.toFixed(2),
     };
 
@@ -110,21 +107,20 @@ export const repairSummary = async (req: Request, res: Response) => {
 
 export const requestSummary = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT 
             COUNT(RequestId) AS totalrequests,
-            SUM(CASE WHEN MONTH(RequestDate) = MONTH(GETDATE())
-                AND YEAR(RequestDate) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS this_month_request,
+            SUM(CASE WHEN EXTRACT(MONTH FROM RequestDate) = EXTRACT(MONTH FROM CURRENT_DATE)
+                AND EXTRACT(YEAR FROM RequestDate) = EXTRACT(YEAR FROM CURRENT_DATE) THEN 1 ELSE 0 END) AS this_month_request,
 
-            SUM(CASE WHEN MONTH(RequestDate) = MONTH(DATEADD(MONTH, -1, GETDATE())) AND
-                YEAR(RequestDate) = YEAR(DATEADD(MONTH, -1, GETDATE())) THEN 1 ELSE 0 END) AS last_month_request
+            SUM(CASE WHEN EXTRACT(MONTH FROM RequestDate) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month') AND
+                EXTRACT(YEAR FROM RequestDate) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month') THEN 1 ELSE 0 END) AS last_month_request
                 
                 FROM request;
             `);
-    const row = result.recordset[0];
-    const thisMonth = row.this_month_request;
-    const lastMonth = row.last_month_request;
+    const row = result.rows[0];
+    const thisMonth = Number(row.this_month_request);
+    const lastMonth = Number(row.last_month_request);
 
     let percentChange = 0;
 
@@ -132,7 +128,7 @@ export const requestSummary = async (req: Request, res: Response) => {
       percentChange = ((thisMonth - lastMonth) / lastMonth) * 100;
     }
     const stats = {
-      totalrequests: row.totalrequests,
+      totalrequests: Number(row.totalrequests),
       percentchange: percentChange.toFixed(2),
     };
 
@@ -145,8 +141,7 @@ export const requestSummary = async (req: Request, res: Response) => {
 
 export const deviceCategoryChart = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT 
                 dc.DeviceCatName AS category,
                 COUNT(dc.DeviceCatName) AS count
@@ -154,9 +149,9 @@ export const deviceCategoryChart = async (req: Request, res: Response) => {
                 JOIN devicecat dc ON d.Category = dc.DeviceCatId
                 GROUP BY dc.DeviceCatName;
             `);
-    const categories = result.recordset.map((row) => ({
+    const categories = result.rows.map((row: any) => ({
       category: row.category,
-      count: row.count,
+      count: Number(row.count),
     }));
 
     res.status(200).json(categories);
@@ -168,18 +163,17 @@ export const deviceCategoryChart = async (req: Request, res: Response) => {
 
 export const requestMetric = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT
-                SUM(CASE WHEN MONTH(r.RequestDate)=MONTH(GETDATE())
-                  AND YEAR(r.RequestDate)=YEAR(GETDATE()) THEN r.cost ELSE 0 END ) AS cost,
+                SUM(CASE WHEN EXTRACT(MONTH FROM r.RequestDate)=EXTRACT(MONTH FROM CURRENT_DATE)
+                  AND EXTRACT(YEAR FROM r.RequestDate)=EXTRACT(YEAR FROM CURRENT_DATE) THEN r.cost ELSE 0 END ) AS cost,
                 SUM(CASE WHEN s.RequestStatusName NOT IN ('Recieved', 'Cancelled') THEN 1 ELSE 0 END) AS pending
                 FROM request r
                 JOIN requeststatus s ON r.StatusId = s.RequestStatusId;
             `);
-    const requests = result.recordset.map((row) => ({
-      cost: row.cost,
-      pending: row.pending,
+    const requests = result.rows.map((row: any) => ({
+      cost: Number(row.cost ?? 0),
+      pending: Number(row.pending),
     }));
 
     res.status(200).json(requests);
@@ -191,16 +185,19 @@ export const requestMetric = async (req: Request, res: Response) => {
 
 export const repairMetric = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                     SELECT
             SUM(CASE WHEN s.RepairStatusName NOT IN ('Recieved','Repaired','Cancelled') THEN 1 ELSE 0 END) AS underrepair,
-            SUM(CASE WHEN MONTH(r.IssueDate)=MONTH(GETDATE())
-                AND YEAR(r.IssueDate)=YEAR(GETDATE()) THEN r.cost ELSE 0 END ) AS cost
+            SUM(CASE WHEN EXTRACT(MONTH FROM r.IssueDate)=EXTRACT(MONTH FROM CURRENT_DATE)
+                AND EXTRACT(YEAR FROM r.IssueDate)=EXTRACT(YEAR FROM CURRENT_DATE) THEN r.cost ELSE 0 END ) AS cost
             FROM repair r
             JOIN repairstatus s ON r.StatusId = s.RepairStatusId;  
         `);
-    const repairs = result.recordset[0];
+    const row = result.rows[0];
+    const repairs = {
+      underrepair: Number(row.underrepair),
+      cost: Number(row.cost ?? 0),
+    };
     res.status(200).json(repairs);
   } catch (error: any) {
     console.error("Failed to get repair metric", error);
@@ -210,8 +207,7 @@ export const repairMetric = async (req: Request, res: Response) => {
 
 export const departmentRequest = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                 SELECT 
                 d.DepartmentName AS department,
                 COUNT(d.DepartmentName) AS count
@@ -219,9 +215,9 @@ export const departmentRequest = async (req: Request, res: Response) => {
                 JOIN department d ON  r.DepartmentId = d.DepartmentId 
                 GROUP BY d.DepartmentName;
             `);
-    const counts = result.recordset.map((row) => ({
+    const counts = result.rows.map((row: any) => ({
       department: row.department,
-      count: row.count,
+      count: Number(row.count),
     }));
     res.status(200).json(counts);
   } catch (error: any) {
@@ -234,8 +230,7 @@ export const departmentRequest = async (req: Request, res: Response) => {
 
 export const monthlyRepairs = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                             WITH months AS (
                 SELECT 1 AS month, 'Jan' AS month_name UNION ALL 
                 SELECT 2, 'Feb' UNION ALL SELECT 3, 'Mar' UNION ALL 
@@ -250,16 +245,16 @@ export const monthlyRepairs = async (req: Request, res: Response) => {
                 SUM(CASE WHEN s.RepairStatusName IN ('Repaired','Recieved') THEN 1 ELSE 0 END) AS completed,
                 COALESCE(COUNT(r.RepairId), 0) AS repairs
             FROM months m
-            LEFT JOIN repair r ON m.month = MONTH(r.IssueDate) 
-                AND YEAR(r.IssueDate) = YEAR(GETDATE())
+            LEFT JOIN repair r ON m.month = EXTRACT(MONTH FROM r.IssueDate) 
+                AND EXTRACT(YEAR FROM r.IssueDate) = EXTRACT(YEAR FROM CURRENT_DATE)
             LEFT JOIN repairstatus s ON r.StatusId = s.RepairStatusId
             GROUP BY m.month, m.month_name
             ORDER BY m.month;
             `);
-    const repairs = result.recordset.map((row) => ({
+    const repairs = result.rows.map((row: any) => ({
       month: row.month,
-      completed: row.completed,
-      repairs: row.repairs,
+      completed: Number(row.completed),
+      repairs: Number(row.repairs),
     }));
     res.status(200).json(repairs);
   } catch (error: any) {
@@ -270,8 +265,7 @@ export const monthlyRepairs = async (req: Request, res: Response) => {
 
 export const monthlyRequests = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
+    const result = await db.query(`
                                 WITH months AS (
                 SELECT 1 AS month, 'Jan' AS month_name UNION ALL 
                 SELECT 2, 'Feb' UNION ALL SELECT 3, 'Mar' UNION ALL 
@@ -285,15 +279,15 @@ export const monthlyRequests = async (req: Request, res: Response) => {
                 SUM(CASE WHEN s.RequestStatusName IN ('recieved') THEN 1 ELSE 0 END) AS completed,
                 COALESCE(COUNT(r.RequestId), 0) AS requests
                 FROM months m
-                LEFT JOIN request r ON m.month = MONTH(r.RequestDate) AND YEAR(r.RequestDate) = YEAR(GETDATE())
+                LEFT JOIN request r ON m.month = EXTRACT(MONTH FROM r.RequestDate) AND EXTRACT(YEAR FROM r.RequestDate) = EXTRACT(YEAR FROM CURRENT_DATE)
                 LEFT JOIN requeststatus s ON r.StatusId = s.RequestStatusId
                 GROUP BY m.month,m.month_name
                 ORDER BY m.month;    
             `);
-    const requests = result.recordset.map((row) => ({
+    const requests = result.rows.map((row: any) => ({
       month: row.month,
-      completed: row.completed,
-      requests: row.requests,
+      completed: Number(row.completed),
+      requests: Number(row.requests),
     }));
     res.status(200).json(requests);
   } catch (error: any) {
