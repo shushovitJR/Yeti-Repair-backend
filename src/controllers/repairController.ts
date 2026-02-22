@@ -59,6 +59,9 @@ export const createRepairRequest = async (req: Request, res: Response) => {
         SELECT RepairStatusId FROM repairstatus
         WHERE RepairStatusName = $1;
       `, [Status])
+    if (statusCheck.rows.length === 0){
+      return res.status(400).json({ message:"Status Doesn't Exist" })
+    }
     const StatusId = statusCheck.rows[0].repairstatusid;
 
     let DeviceId: number;
@@ -102,10 +105,10 @@ export const getRepairRequest = async (req: Request, res: Response)=>{
                   r.IssueDate AS "IssueDate",
                   r.ReturnDate AS "ReturnDate",
                   r.Cost AS "Cost",
-                  s.RepairStatusName AS StatusName,
+                  s.RepairStatusName AS "StatusName",
                   s.Color AS "Color",
                   d.DeviceName AS "DeviceName",
-                  dc.DeviceCatName AS Category,
+                  dc.DeviceCatName AS "Category",
                   v.VendorName AS "VendorName",
                   dep.DepartmentName AS "DepartmentName"
               FROM repair r

@@ -52,7 +52,8 @@ export const getDevices = async (req: Request, res: Response) => {
         DeviceCatId AS "DeviceCatId",
         DeviceCatName AS "DeviceCatName",
         DeviceDescription AS "DeviceDescription"
-      FROM devicecat;
+      FROM devicecat
+      ORDER BY DeviceCatId ASC;
     `);
 
     const devices = result.rows.map((row: any) => ({

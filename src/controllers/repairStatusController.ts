@@ -50,7 +50,8 @@ export const getStatuses = async (req: Request, res: Response)=>{
                 RepairStatusName AS "RepairStatusName",
                 StatusDescription AS "StatusDescription",
                 Color AS "Color"
-            FROM repairstatus;
+            FROM repairstatus
+            ORDER BY RepairStatusId ASC;
         `);
         const statuses = result.rows.map((row: any)=>({
             RepairStatusId: row.RepairStatusId,

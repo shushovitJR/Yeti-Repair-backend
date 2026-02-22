@@ -38,7 +38,8 @@ export const getVendors = async (req: Request, res: Response) => {
       SELECT
         VendorId AS "VendorId",
         VendorName AS "VendorName"
-      FROM vendor;
+      FROM vendor
+      ORDER BY VendorId ASC;
     `);
 
     const vendors = result.rows.map((row: any) => ({

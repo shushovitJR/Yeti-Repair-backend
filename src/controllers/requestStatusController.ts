@@ -55,6 +55,7 @@ export const getStatuses = async (req: Request, res: Response)=>{
                     StatusDescription AS "StatusDescription",
                     Color AS "Color"
                 FROM requeststatus
+                ORDER BY RequestStatusId ASC;
             `);
 
         const statuses = result.rows.map((row: any)=>({
