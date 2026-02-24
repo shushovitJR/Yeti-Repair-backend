@@ -63,7 +63,7 @@ export const repairSummary = async (req: Request, res: Response) => {
     const result = await db.query(`
                         SELECT
             COUNT(r.RepairId) AS totalrepairs,
-            AVG(DATE_PART('day', r.ReturnDate - r.IssueDate)) AS repairtime,
+            AVG(r.ReturnDate - r.IssueDate) AS repairtime,
             SUM(CASE WHEN rs.RepairStatusName IN ('Recieved', 'Repaired') THEN 1 ELSE 0 END) AS completed,
 
                 SUM(CASE 
@@ -72,7 +72,7 @@ export const repairSummary = async (req: Request, res: Response) => {
                 THEN 1 ELSE 0 
             END) AS this_month_repairs,
             
-            -- Last month's repairs
+           
             SUM(CASE 
                 WHEN EXTRACT(MONTH FROM r.IssueDate) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month') 
                 AND EXTRACT(YEAR FROM r.IssueDate) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month') 
