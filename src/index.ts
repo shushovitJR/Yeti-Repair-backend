@@ -10,6 +10,8 @@ import repairStatusRoutes from './routes/repairStatusRoutes';
 import requestStatusRoutes from './routes/requestStatusRoutes';
 import reportRoutes from './routes/reportRoutes';
 import departmentRoutes from './routes/departmentRoutes';
+import supportStatusRoutes from './routes/supportStatusRoutes';
+import supportRoutes from './routes/supportRoutes'
 
 dotenv.config();
 const app = express();
@@ -35,5 +37,7 @@ app.use("/api/department", departmentRoutes)
 app.use('/api/repairStatus', repairStatusRoutes)
 app.use('/api/requestStatus', requestStatusRoutes)
 app.use('/api/report', reportRoutes)
+app.use('/api/supportstatus', supportStatusRoutes)
+app.use('/api/support', supportRoutes)
 
 export default app;
