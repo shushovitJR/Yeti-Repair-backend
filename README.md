@@ -1,6 +1,6 @@
 # Yeti Repair Management - Backend API
 
-A comprehensive REST API backend for managing device repairs, requests, vendors, and maintenance workflows. Built with **Express.js** and **TypeScript**, this backend provides secure authentication, role-based access control, and integration with SQL Server databases.
+A comprehensive REST API backend for managing device repairs, requests, vendors, support tickets, and maintenance workflows. Built with **Express.js** and **TypeScript**, this backend provides secure authentication, role-based access control, and integration with PostgreSQL databases.
 
 ## Overview
 
@@ -12,10 +12,11 @@ This backend service powers the Yeti Repair Management application, enabling org
 - **Device Management**: Track devices, their details, and repair history
 - **Repair Management**: Create, update, and monitor repair requests and statuses
 - **Request Management**: Handle device repair requests with status tracking
+- **Support Tickets**: Create and manage support tickets with status tracking
 - **Vendor Management**: Manage vendor information and repair partnerships
 - **Department Management**: Organize repairs by department
 - **Reporting**: Generate repair statistics and reports
-- **Status Tracking**: Real-time status updates for repairs and requests
+- **Status Tracking**: Real-time status updates for repairs, requests, and support tickets
 - **Password Security**: Bcrypt encryption for user passwords
 - **CORS Support**: Configured for secure cross-origin requests
 
@@ -24,7 +25,7 @@ This backend service powers the Yeti Repair Management application, enabling org
 - **Runtime**: Node.js with ES Modules
 - **Language**: TypeScript 5.9+
 - **Framework**: Express.js 5.x
-- **Database**: SQL Server (MSSQL)
+- **Database**: PostgreSQL 12+
 - **Authentication**: JWT (JSON Web Tokens) & Bcrypt
 - **Build Tools**: tsx, TypeScript Compiler
 - **Security**: CORS, bcryptjs
@@ -32,7 +33,7 @@ This backend service powers the Yeti Repair Management application, enabling org
 ## Prerequisites
 
 - Node.js 18+ and npm
-- SQL Server database instance
+- PostgreSQL database instance (12 or higher)
 - Environment variables configured (see Configuration section)
 
 ## Installation
@@ -59,7 +60,7 @@ DB_SERVER=your-server-address
 DB_NAME=yeti_repair_db
 DB_USER=your-username
 DB_PASSWORD=your-password
-DB_PORT=1433
+DB_PORT=5432
 
 # JWT Configuration
 JWT_SECRET=your-secret-key-here
@@ -70,7 +71,7 @@ PORT=5000
 ```
 
 **Required Variables**:
-- `DB_SERVER`: SQL Server host (supports `HOST\INSTANCE` format for named instances)
+- `DB_SERVER`: PostgreSQL host address (e.g., localhost or database.example.com)
 - `DB_NAME`: Database name
 - `DB_USER`: Database username
 - `DB_PASSWORD`: Database password
@@ -78,7 +79,7 @@ PORT=5000
 - `REACT_APP_API_URL`: Base URL for API (used for CORS configuration)
 
 **Optional Variables**:
-- `DB_PORT`: Database port (defaults to 1433)
+- `DB_PORT`: Database port (defaults to 5432)
 
 ## Available Scripts
 
@@ -110,26 +111,30 @@ src/
 ├── index.ts              # Express app configuration and route setup
 ├── server.ts             # Server entry point and database connection
 ├── config/
-│   └── db.ts            # MSSQL database connection setup
+│   └── db.ts            # PostgreSQL database connection setup
 ├── controllers/          # Business logic for each feature
 │   ├── authController.ts
 │   ├── deviceController.ts
 │   ├── repairController.ts
 │   ├── requestController.ts
+│   ├── supportController.ts
 │   ├── vendorController.ts
 │   ├── departmentController.ts
 │   ├── repairStatusController.ts
 │   ├── requestStatusController.ts
+│   ├── supportStatusController.ts
 │   └── reportController.ts
 ├── routes/              # API endpoint definitions
 │   ├── authRoutes.ts
 │   ├── deviceRoutes.ts
 │   ├── repairRoutes.ts
 │   ├── requestRoutes.ts
+│   ├── supportRoutes.ts
 │   ├── vendorRoutes.ts
 │   ├── departmentRoutes.ts
 │   ├── repairStatusRoutes.ts
 │   ├── requestStatusRoutes.ts
+│   ├── supportStatusRoutes.ts
 │   └── reportRoutes.ts
 └── middlewares/         # Express middleware
     └── authMiddleware.ts
@@ -175,11 +180,20 @@ src/
 - `PUT /api/department/:id` - Update department
 - `DELETE /api/department/:id` - Delete department
 
+### Support Tickets
+- `GET /api/support` - List all support tickets
+- `POST /api/support` - Create support ticket
+- `GET /api/support/:id` - Get support ticket details
+- `PUT /api/support/:id` - Update support ticket
+- `DELETE /api/support/:id` - Delete support ticket
+
 ### Status Management
 - `GET /api/repairStatus` - List repair statuses
 - `POST /api/repairStatus` - Create repair status
 - `GET /api/requestStatus` - List request statuses
 - `POST /api/requestStatus` - Create request status
+- `GET /api/supportStatus` - List support ticket statuses
+- `POST /api/supportStatus` - Create support ticket status
 
 ### Reports
 - `GET /api/report` - Generate repair reports
@@ -202,11 +216,11 @@ src/
 
 ## Database Connection
 
-The backend uses **MSSQL** with the following features:
+The backend uses **PostgreSQL** with the following features:
 
-- **Named Instance Support**: Automatically handles `HOST\INSTANCE` format
-- **Port Configuration**: Supports explicit port specification
-- **Connection Pooling**: Efficient connection management
+- **Connection Pooling**: Efficient connection management with connection pooling
+- **Port Configuration**: Supports explicit port specification (defaults to 5432)
+- **Host Configuration**: Supports localhost and remote database hosts
 - **Error Handling**: Comprehensive validation of connection parameters
 
 ### Connection Configuration
@@ -241,7 +255,7 @@ npm run dev
 ```
 
 The server will:
-1. Connect to the MSSQL database
+1. Connect to the PostgreSQL database
 2. Start listening on port 5000
 3. Reload automatically when files change
 4. Log all requests and activities
