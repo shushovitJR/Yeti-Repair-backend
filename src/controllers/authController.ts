@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import sql from "../config/db";
+import db from "../config/db";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -7,14 +7,25 @@ export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   try {
-    const result =
-      await sql.query`SELECT * FROM users WHERE Username = ${username}`;
+    const result = await db.query(
+      `
+        SELECT
+          UserId AS "UserId",
+          Username AS "Username",
+          Password AS "Password",
+          Role AS "Role",
+          EmployeeName AS "EmployeeName"
+        FROM users
+        WHERE Username = $1
+      `,
+      [username]
+    );
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const user = result.recordset[0];
+    const user = result.rows[0];
 
     if (user.Username !== username){
       return res.status(401).json({ message:"Username or Password is incorrect" })
@@ -35,11 +46,10 @@ export const login = async (req: Request, res: Response) => {
     // Re-hash plain-text password if needed
     if (!user.Password.startsWith("$2b$")) {
       const hashed = await bcrypt.hash(password, 10);
-      await sql.query`
-        UPDATE users 
-        SET Password = ${hashed} 
-        WHERE UserId = ${user.UserId}  -- Use exact column name
-      `;
+      await db.query("UPDATE users SET Password = $1 WHERE UserId = $2", [
+        hashed,
+        user.UserId,
+      ]);
     }
 
     const token = jwt.sign(

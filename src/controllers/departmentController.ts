@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import sql from "../config/db";
+import db from "../config/db";
 
 export const addDepartment = async (req: Request, res: Response) => {
   const { DepartmentName } = req.body;
@@ -9,15 +9,16 @@ export const addDepartment = async (req: Request, res: Response) => {
     });
   }
   try {
-    const request = new sql.Request();
-    const result = await request.input("DepartmentName", DepartmentName).query(`
-                INSERT INTO department (DepartmentName)
-                VALUES (@DepartmentName);
+    const result = await db.query(
+      `
+        INSERT INTO department (DepartmentName)
+        VALUES ($1)
+        RETURNING DepartmentId AS "DepartmentId";
+      `,
+      [DepartmentName]
+    );
 
-                SELECT SCOPE_IDENTITY() AS DepartmentId;
-                `);
-
-    const newDepartmentId = result.recordset[0]?.DepartmentId;
+    const newDepartmentId = result.rows[0]?.DepartmentId;
 
     res.status(201).json({
       message: "Request Created Successfully",
@@ -33,13 +34,14 @@ export const addDepartment = async (req: Request, res: Response) => {
 
 export const getDepartments = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
+    const result = await db.query(`
+      SELECT
+        DepartmentId AS "DepartmentId",
+        DepartmentName AS "DepartmentName"
+      FROM department;
+    `);
 
-    const result = await request.query(`
-                SELECT DepartmentId, DepartmentName FROM department;
-            `);
-
-    const department = result.recordset.map((row: any) => ({
+    const department = result.rows.map((row: any) => ({
       DepartmentId: row.DepartmentId,
       DepartmentName: row.DepartmentName,
     }));
@@ -62,15 +64,12 @@ export const deleteDepartment = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
-
     const deleteQuery = `
         DELETE FROM department
-        WHERE DepartmentId = @DepartmentId`;
-    request.input("DepartmentId", departmentId);
-    const deleteResult = await request.query(deleteQuery);
+        WHERE DepartmentId = $1`;
+    const deleteResult = await db.query(deleteQuery, [departmentId]);
 
-    if (deleteResult.rowsAffected[0] === 0) {
+    if (deleteResult.rowCount === 0) {
       return res.status(404).json({ message: "Department not found" });
     }
 
@@ -101,28 +100,23 @@ export const updateDepartment = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
-
     let updateQuery = "UPDATE department SET ";
     const updates: string[] = [];
-    const params: Record<string, any> = {};
+    const values: any[] = [];
+    let index = 1;
 
     if (DepartmentName !== undefined) {
-      updates.push("DepartmentName=@DepartmentName");
-      params.DepartmentName = DepartmentName; 
+      updates.push(`DepartmentName=$${index++}`);
+      values.push(DepartmentName);
     }
 
-    updateQuery += updates.join(', ');
-    updateQuery += " WHERE DepartmentId = @DepartmentId";
-    request.input("DepartmentId", DepartmentId);
+    updateQuery += updates.join(", ");
+    updateQuery += ` WHERE DepartmentId = $${index}`;
+    values.push(DepartmentId);
 
-    Object.keys(params).forEach((key) => {
-      request.input(key, params[key]);
-    });
+    const result = await db.query(updateQuery, values);
 
-    const result = await request.query(updateQuery);
-
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Department not found" });
     }
 

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import sql from '../config/db';
+import db from '../config/db';
 
 export const createStatus = async (req: Request, res: Response)=>{
     const {
@@ -19,17 +19,16 @@ export const createStatus = async (req: Request, res: Response)=>{
 };
 
     try{
-        const request = new sql.Request();
-        const postQuery = `
+        const result = await db.query(
+            `
             INSERT INTO repairstatus(RepairStatusName, Color, StatusDescription)
-            VALUES (@RepairStatusName, @Color, @StatusDescription)
-            SELECT SCOPE_IDENTITY() AS RepairStatusId;
-        `;
-        const result = await request.input('RepairStatusName', statusName)
-                .input('Color', statusColor)
-                .input('StatusDescription', statusDescription).query(postQuery);
+            VALUES ($1, $2, $3)
+            RETURNING RepairStatusId AS "RepairStatusId";
+        `,
+            [statusName, statusColor, statusDescription]
+        );
         
-        const statusId = result.recordset[0]?.RepairStatusId;
+        const statusId = result.rows[0]?.RepairStatusId;
         if (!statusId){
             return res.status(500).json({ message:"Status Created but could not get id" })
         }
@@ -45,12 +44,16 @@ export const createStatus = async (req: Request, res: Response)=>{
 
 export const getStatuses = async (req: Request, res: Response)=>{
     try{
-        const request = new sql.Request();
-        const result = await request.query(`
-            SELECT RepairStatusId, RepairStatusName, StatusDescription, Color
-            FROM repairstatus;
+        const result = await db.query(`
+            SELECT
+                RepairStatusId AS "RepairStatusId",
+                RepairStatusName AS "RepairStatusName",
+                StatusDescription AS "StatusDescription",
+                Color AS "Color"
+            FROM repairstatus
+            ORDER BY RepairStatusId ASC;
         `);
-        const statuses = result.recordset.map((row: any)=>({
+        const statuses = result.rows.map((row: any)=>({
             RepairStatusId: row.RepairStatusId,
             RepairStatusName: row.RepairStatusName,
             StatusDescription: row.StatusDescription,
@@ -95,29 +98,30 @@ export const updateStatus = async (req: Request, res: Response)=>{
     }   
 
     try{
-        const request = new sql.Request();
         const updates: string[] = [];
+        const values: any[] = [];
+        let index = 1;
 
         if (statusName !== undefined){
-            updates.push('RepairStatusName = @RepairStatusName');
-            request.input('RepairStatusName', statusName);
+            updates.push(`RepairStatusName = $${index++}`);
+            values.push(statusName);
         }
         if (statusDescription !== undefined){
-            updates.push('StatusDescription = @StatusDescription');
-            request.input('StatusDescription', statusDescription);
+            updates.push(`StatusDescription = $${index++}`);
+            values.push(statusDescription);
         }
         if (statusColor !== undefined){
-            updates.push('Color = @Color');
-            request.input('Color', statusColor);
+            updates.push(`Color = $${index++}`);
+            values.push(statusColor);
         }
-        const result = await request.input('RepairStatusId', statusId)
-            .query(`
+        values.push(statusId);
+        const result = await db.query(`
                 UPDATE repairstatus
                 SET ${updates.join(', ')}
-                WHERE RepairStatusId = @RepairStatusId;
-            `)
+                WHERE RepairStatusId = $${index};
+            `, values)
         
-        if (result.rowsAffected[0] === 0){
+        if (result.rowCount === 0){
             return res.status(404).json({ message:"Repair status not found" });
         }
 
@@ -138,13 +142,11 @@ export const deleteStatus = async (req: Request, res: Response)=>{
         return res.status(400).json({ message: 'Invalid status id' });
     }
     try{
-        const request = new sql.Request();
-        const result = await request.input('RepairStatusId', statusId)
-            .query(`
+        const result = await db.query(`
                 DELETE FROM repairstatus
-                WHERE RepairStatusId = @RepairStatusId;
-                `)
-        if (result.rowsAffected[0]===0){
+                WHERE RepairStatusId = $1;
+                `, [statusId])
+        if (result.rowCount===0){
             return res.status(404).json({ message: "Repair Status not Found" });
         }
         res.status(200).json({

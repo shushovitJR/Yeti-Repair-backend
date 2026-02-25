@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import sql from "../config/db";
+import db from "../config/db";
 
 export const createDevice = async (req: Request, res: Response) => {
   const { DeviceCatName, DeviceDescription } = req.body;
@@ -11,28 +11,29 @@ export const createDevice = async (req: Request, res: Response) => {
   const hasDescription = DeviceDescription && DeviceDescription.trim() !== "";
 
   try {
-    const request = new sql.Request();
     let result;
 
     if (hasDescription) {
-      result = await request
-        .input("DeviceCatName", DeviceCatName)
-        .input("DeviceDescription", DeviceDescription).query(`
+      result = await db.query(
+        `
         INSERT INTO devicecat (DeviceCatName, DeviceDescription)
-        VALUES (@DeviceCatName, @DeviceDescription);
-
-        SELECT SCOPE_IDENTITY() AS DeviceCatId;
-      `);
+        VALUES ($1, $2)
+        RETURNING DeviceCatId AS "DeviceCatId";
+      `,
+        [DeviceCatName, DeviceDescription]
+      );
     } else {
-      result = await request.input("DeviceCatName", DeviceCatName).query(`
+      result = await db.query(
+        `
         INSERT INTO devicecat (DeviceCatName)
-        VALUES (@DeviceCatName);
-
-        SELECT SCOPE_IDENTITY() AS DeviceCatId;
-      `);
+        VALUES ($1)
+        RETURNING DeviceCatId AS "DeviceCatId";
+      `,
+        [DeviceCatName]
+      );
     }
 
-    const newDeviceId = result.recordset[0]?.DeviceCatId;
+    const newDeviceId = result.rows[0]?.DeviceCatId;
 
     res.status(200).json({
       message: "Category Created Successfully",
@@ -46,12 +47,16 @@ export const createDevice = async (req: Request, res: Response) => {
 
 export const getDevices = async (req: Request, res: Response) => {
   try {
-    const request = new sql.Request();
-    const result = await request.query(`
-                SELECT DeviceCatId, DeviceCatName, DeviceDescription FROM devicecat;
-            `);
+    const result = await db.query(`
+      SELECT
+        DeviceCatId AS "DeviceCatId",
+        DeviceCatName AS "DeviceCatName",
+        DeviceDescription AS "DeviceDescription"
+      FROM devicecat
+      ORDER BY DeviceCatId ASC;
+    `);
 
-    const devices = result.recordset.map((row: any) => ({
+    const devices = result.rows.map((row: any) => ({
       DeviceCategoryId: row.DeviceCatId,
       DeviceCategoryName: row.DeviceCatName,
       DeviceDescription: row.DeviceDescription,
@@ -78,28 +83,29 @@ export const updateDevice = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
     let updates: string[] = [];
+    const values: any[] = [];
+    let index = 1;
 
     if (DeviceCatName !== undefined) {
-      updates.push("DeviceCatName = @DeviceCatName");
-      request.input("DeviceCatName", DeviceCatName);
+      updates.push(`DeviceCatName = $${index++}`);
+      values.push(DeviceCatName);
     }
     if (DeviceDescription !== undefined) {
-      updates.push("DeviceDescription = @DeviceDescription");
-      request.input("DeviceDescription", DeviceDescription);
+      updates.push(`DeviceDescription = $${index++}`);
+      values.push(DeviceDescription);
     }
-    request.input("DeviceCatId", DeviceCatId);
+    values.push(DeviceCatId);
 
     const query = `
             UPDATE devicecat
             SET ${updates.join(", ")}
-            WHERE DeviceCatId = @DeviceCatId
+            WHERE DeviceCatId = $${index}
         `;
 
-    const result = await request.query(query);
+    const result = await db.query(query, values);
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Device Category not found" });
     }
 
@@ -122,20 +128,25 @@ export const deleteDevice = async (req: Request, res: Response) => {
   }
 
   try {
-    const request = new sql.Request();
-    const deleteDevices = await request.input('Category', DeviceCatId).query(`
+    const deleteDevices = await db.query(
+      `
         DELETE FROM device
-        WHERE Category = @Category;
-      `)
-    if (deleteDevices.rowsAffected[0]===0){
+        WHERE Category = $1;
+      `,
+      [DeviceCatId]
+    );
+    if (deleteDevices.rowCount === 0){
       return res.status(404).json({ message:"Failed to delete devices of this category" })
     }
-    const result = await request.input("DeviceCatId", DeviceCatId).query(`
+    const result = await db.query(
+      `
                 DELETE FROM devicecat
-                WHERE DeviceCatId = @DeviceCatId;  
-            `);
+                WHERE DeviceCatId = $1;  
+            `,
+      [DeviceCatId]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Device category not found" });
     }
 
