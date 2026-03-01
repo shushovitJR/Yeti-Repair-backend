@@ -13,7 +13,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "allowImportingTsExtensions": false,
-    "noEmit": true
+    "outDir": "./dist",
+    "noEmit": false
   },
   "include": ["*.ts", "src/index.ts"],
   "exclude": ["node_modules"]
