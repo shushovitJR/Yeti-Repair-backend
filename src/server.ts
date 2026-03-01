@@ -1,5 +1,5 @@
-import app from './index'
-import { connectDB } from './config/db'
+import app from './index.js'
+import { connectDB } from './config/db.js'
 
 const API_URL = process.env.REACT_APP_API_URL
 
