@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { addVendor, getVendors, deleteVendor, updateVendor } from "../controllers/vendorController";
-import { authenticate, authorize } from "../middlewares/authMiddleware";
+import { addVendor, getVendors, deleteVendor, updateVendor } from "../controllers/vendorController.js";
+import { authenticate, authorize } from "../middlewares/authMiddleware.js";
 
 
 const router = Router();

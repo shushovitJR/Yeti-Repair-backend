@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { createSupport, getSupport, updateSupport, deleteSupport } from "../controllers/supportController";
-import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { createSupport, getSupport, updateSupport, deleteSupport } from "../controllers/supportController.js";
+import { authenticate, authorize } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { createStatus, getStatuses, updateStatus, deleteStatus } from "../controllers/supportStatusController";
-import { authenticate,authorize } from "../middlewares/authMiddleware";
+import { createStatus, getStatuses, updateStatus, deleteStatus } from "../controllers/supportStatusController.js";
+import { authenticate,authorize } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 

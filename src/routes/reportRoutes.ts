@@ -2,7 +2,7 @@ import { Router } from "express";
 import { 
     reportTable_Repair, reportTable_Request, repairSummary, requestSummary, deviceCategoryChart, requestMetric, repairMetric,
     departmentRequest, monthlyRepairs, monthlyRequests
-} from "../controllers/reportController";
+} from "../controllers/reportController.js";
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createRepairRequest, getRepairRequest, updateRepairRequest, deleteRepairRequest } from '../controllers/repairController';
-import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { createRepairRequest, getRepairRequest, updateRepairRequest, deleteRepairRequest } from '../controllers/repairController.js';
+import { authenticate, authorize } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 

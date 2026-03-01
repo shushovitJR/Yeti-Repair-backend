@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { createDevice, getDevices, updateDevice, deleteDevice } from '../controllers/deviceController';
-import {authenticate,authorize} from '../middlewares/authMiddleware';
+import { createDevice, getDevices, updateDevice, deleteDevice } from '../controllers/deviceController.js';
+import {authenticate,authorize} from '../middlewares/authMiddleware.js';
 
 const router = Router();
 

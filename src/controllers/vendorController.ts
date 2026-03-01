@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import db from "../config/db";
+import db from "../config/db.js";
 
 export const addVendor = async (req: Request, res: Response) => {
   const { VendorName } = req.body;

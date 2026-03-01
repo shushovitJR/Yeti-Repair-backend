@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import db from "../config/db";
+import db from "../config/db.js";
 
 export const reportTable_Repair = async (req: Request, res: Response) => {
   try {
