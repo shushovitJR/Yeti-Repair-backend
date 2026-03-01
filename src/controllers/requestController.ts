@@ -1,6 +1,6 @@
 import {Request, Response} from 'express';
 import db from '../config/db.js';
-import { AuthRequest } from '../middlewares/authMiddleware';
+import { AuthRequest } from '../middlewares/authMiddleware.js';
 
 const formatDate = (value: any) => {
     if (!value) return null;
